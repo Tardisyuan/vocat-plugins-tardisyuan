@@ -1,0 +1,52 @@
+# Push a tag like v1.0.0 to build every plugin and publish them as a GitHub Release.
+# VoCat can then install a plugin straight from the release asset URL.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Test
+        run: for t in tests/*.test.js; do node "$t"; done
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.zip > SHA256SUMS
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "## 安装链接"
+            echo
+            echo "在 VoCat「设置 → 插件 → 通过链接安装」里填下面的地址。升级前先卸载旧版本。"
+            echo
+            for zip in dist/*.zip; do
+              name=$(basename "$zip")
+              sum=$(grep " $name\$" dist/SHA256SUMS | cut -d' ' -f1)
+              echo "- \`$name\`"
+              echo "  - 这个版本：\`https://github.com/${{ github.repository }}/releases/download/$TAG/$name\`"
+              echo "  - SHA-256：\`$sum\`"
+            done
+            echo
+            echo "始终安装最新版：\`https://github.com/${{ github.repository }}/releases/latest/download/<文件名>\`（SHA-256 留空）。"
+          } > notes.md
+          gh release create "$TAG" dist/*.zip dist/SHA256SUMS --title "$TAG" --notes-file notes.md

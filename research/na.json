@@ -1,0 +1,10 @@
+[
+{"country":"美国","carrier":"Verizon Prepaid","match":"verizon","plmn":"311480","method":"ussd","code":"#225","note":"查询余额（#BAL）","source":"https://www.verizon.com/support/pound-star-codes/","confidence":"official"},
+{"country":"美国","carrier":"Verizon Prepaid","match":"verizon","plmn":"311480","method":"ussd","code":"#3282","note":"查询流量使用（#DATA）","source":"https://www.verizon.com/support/pound-star-codes/","confidence":"official"},
+{"country":"美国","carrier":"Verizon Prepaid","match":"verizon","plmn":"311480","method":"ussd","code":"#646","note":"查询剩余分钟数（#MIN）","source":"https://www.verizon.com/support/pound-star-codes/","confidence":"official"},
+{"country":"美国","carrier":"AT&T Prepaid","match":"att","plmn":"310410","method":"ussd","code":"*777#","note":"短信回复余额、流量和套餐信息","source":"https://www.att.com/support/article/bdpreae/KM1048283","confidence":"official"},
+{"country":"美国","carrier":"Mint Mobile","match":"mint","plmn":"310260","method":"sms","to":"6700","text":"DATA","note":"回复剩余流量；官方页面未能直接打开核实","source":"https://www.mintmobile.com/faqs/how-do-i-keep-track-of-my-monthly-usage/","confidence":"official"},
+{"country":"美国","carrier":"Tello","match":"tello","plmn":"310260","method":"sms","to":"800","text":"BALANCE","note":"回复剩余分钟、短信和流量","source":"https://tello.com/help_center/balance/where-can-i-check-my-service-balances","confidence":"official"},
+{"country":"加拿大","carrier":"chatr","match":"chatr","plmn":"302720","method":"ussd","code":"*225#","note":"屏幕直接显示余额","source":"https://www.whistleout.ca/CellPhones/Faqs/115012867508-Can-I-check-my-Chatr-account-balance-","confidence":"third-party"},
+{"country":"美国","carrier":"Metro by T-Mobile","match":"metro","plmn":"310026","method":"ussd","code":"#225#","note":"只有一个弱来源，可信度低","source":"https://www.teloa.com/cms/en/landing/ret/metro-by-t-mobile","confidence":"third-party"}
+]

@@ -1,0 +1,6 @@
+# Built packages are published as GitHub Release assets, not committed.
+dist/
+# Personal notes, not part of the plugins.
+ultra-recharge-handoff.md
+.DS_Store
+node_modules/

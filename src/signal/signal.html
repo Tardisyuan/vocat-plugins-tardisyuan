@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信号记录</title>
+<link rel="stylesheet" href="common.css">
+</head>
+<body>
+<div class="row">
+  <select id="device"></select>
+  <select id="every">
+    <option value="10">每 10 秒</option>
+    <option value="30" selected>每 30 秒</option>
+    <option value="60">每 60 秒</option>
+  </select>
+  <select id="span">
+    <option value="1">显示 1 小时</option>
+    <option value="6" selected>显示 6 小时</option>
+    <option value="24">显示 24 小时</option>
+    <option value="168">显示 7 天</option>
+  </select>
+  <button class="ghost" id="clear">清空记录</button>
+  <span class="bad" id="status"></span>
+</div>
+<div class="card"><span id="mode" class="mono">正在读取…</span></div>
+<p class="muted">只在本页打开时采样，数据存在当前浏览器。USB 读卡器没有基带，不在列表里。</p>
+
+<div class="card">
+  <div class="row" style="margin:0">
+    <span style="color:var(--accent)">■ RSRP (dBm)</span>
+    <span style="color:var(--ok)">■ SINR (dB)</span>
+    <span class="muted" id="now"></span>
+  </div>
+  <svg id="chart" viewBox="0 0 800 220"></svg>
+</div>
+
+<h2>小区切换</h2>
+<table><thead><tr><th>时间</th><th>PLMN</th><th>频段</th><th>EARFCN</th><th>PCI</th><th>RSRP</th></tr></thead><tbody id="changes"></tbody></table>
+
+<h2>当前小区</h2>
+<table><thead><tr><th>类型</th><th>PLMN</th><th>频段</th><th>EARFCN</th><th>PCI</th><th>RSRP</th><th>RSRQ</th><th>SINR</th></tr></thead><tbody id="cells"></tbody></table>
+
+<script src="core.js"></script>
+<script src="common.js"></script>
+<script>
+const MAX_SAMPLES = 10000; // ponytail: ~3.5 days at 30s, ~1 MB per device in localStorage; use a plugin backend for longer history
+let timer;
+const key = () => "signal." + $("#device").value;
+const samples = () => store.get(key(), []).filter((p) => p.rsrp !== 0); // drop 0-readings saved by v0.3.2
+
+const noCells = new Set(); // devices whose firmware cannot list cells
+
+// Cell list when the firmware supports it; why it was skipped otherwise.
+async function cellList(id) {
+  if (noCells.has(id)) return { items: [], why: "固件不支持查询小区列表" };
+  try {
+    const items = (await api(`/devices/${encodeURIComponent(id)}/cells`)).items || [];
+    return { items, why: items.some((c) => c.source === "serving") ? "" : "小区列表里没有服务小区" };
+  } catch (e) {
+    if (e.code !== "cell_query_unsupported") return { items: [], why: "查询小区列表失败：" + e.message };
+    noCells.add(id);
+    return { items: [], why: "固件不支持查询小区列表" };
+  }
+}
+
+async function sample() {
+  const id = $("#device").value;
+  if (!id) return;
+  try {
+    // VoCat runs WiFi Calling airplane-first (CFUN=4), so the cellular radio is off and there is nothing to sample.
+    const d = (await runningDevices()).find((x) => x.id === id);
+    if (d?.vowifiEnabled) {
+      $("#mode").textContent = "这台设备开着 WiFi Calling。VoCat 会把蜂窝射频关掉（CFUN=4，相当于飞行模式），避免注册到漫游网络，所以没有信号可记录。关掉 WiFi Calling 后才能采样。";
+      $("#cells").innerHTML = "";
+      $("#status").textContent = "";
+      return render();
+    }
+    // The device summary is always available and carries band and mode; the cell list adds PCI and neighbours.
+    const [m, { items, why }] = await Promise.all([
+      runningDevices().then((ds) => ds.find((d) => d.id === id)?.modem || {}),
+      cellList(id),
+    ]);
+    const band = m.radioBand || "";
+    const s = items.find((c) => c.source === "serving") || {
+      source: "serving", plmn: m.operator || "", earfcn: m.radioChannel, pci: null,
+      rsrp: m.signalRsrp ?? m.signalDbm, rsrq: m.signalRsrq, sinr: m.signalSinr,
+    };
+    const rows = items.length ? items : [s];
+    $("#mode").textContent = `数据来源：${why ? `设备摘要（${why}）` : "小区列表"} · 频段 ${band || "未知"} · 网络 ${m.networkMode || "未知"} · 注册 ${m.regStatusText || m.regStatus || "未知"}`;
+    $("#cells").innerHTML = rows.map((c) => `<tr><td>${c.source === "serving" ? "服务" : "邻区"}</td><td>${esc(c.plmn)}</td><td>${esc(c.source === "serving" ? band : "")}</td><td>${c.earfcn ?? ""}</td><td>${c.pci ?? ""}</td><td>${c.rsrp ?? ""}</td><td>${c.rsrq ?? ""}</td><td>${c.sinr ?? ""}</td></tr>`).join("");
+    // An unregistered modem reports 0 for every reading; that is "no signal", not 0 dBm.
+    for (const f of ["rsrp", "rsrq", "sinr"]) if (s[f] === 0 && !s.rsrp) s[f] = null;
+    if (s.rsrp != null || s.sinr != null) {
+      const list = samples();
+      list.push({ t: Date.now(), plmn: s.plmn, band, earfcn: s.earfcn, pci: s.pci, rsrp: s.rsrp, rsrq: s.rsrq, sinr: s.sinr });
+      store.set(key(), list.slice(-MAX_SAMPLES));
+      $("#status").textContent = "";
+    } else {
+      $("#status").textContent = `没读到信号值，这次不记录。设备注册状态：${m.regStatusText || "未知"}`;
+    }
+  } catch (e) {
+    $("#status").textContent = e.message;
+  }
+  render();
+}
+
+// Plot area inside the 800x220 viewBox; left/right margins hold the axis labels.
+const X0 = 44, X1 = 760, Y0 = 10, Y1 = 200;
+const RSRP = [-140, -44], SINR = [-20, 30];
+const yOf = (v, [lo, hi]) => Y1 - (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo) * (Y1 - Y0);
+
+function series(list, field, range, t0, t1, color) {
+  const pts = list.filter((p) => p[field] != null).map((p) =>
+    [(X0 + (p.t - t0) / (t1 - t0 || 1) * (X1 - X0)).toFixed(1), yOf(p[field], range).toFixed(1)]);
+  return `<polyline fill="none" style="stroke:var(${color})" stroke-width="1.5" points="${pts.join(" ")}"/>` +
+    (pts.length > 60 ? [] : pts).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" style="fill:var(${color})"/>`).join("");
+}
+
+function axes(t0, t1) {
+  const grid = [-140, -110, -80, -44].map((v) => {
+    const y = yOf(v, RSRP).toFixed(1);
+    const s = Math.round(SINR[0] + (v - RSRP[0]) / (RSRP[1] - RSRP[0]) * (SINR[1] - SINR[0]));
+    return `<line x1="${X0}" x2="${X1}" y1="${y}" y2="${y}" style="stroke:var(--line)"/>` +
+      `<text x="${X0 - 4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="fill:var(--accent)">${v}</text>` +
+      `<text x="${X1 + 4}" y="${y}" dominant-baseline="middle" style="fill:var(--ok)">${s}</text>`;
+  }).join("");
+  const time = (t) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return grid +
+    `<text x="${X0}" y="216" style="fill:var(--muted)">${time(t0)}</text>` +
+    `<text x="${X1}" y="216" text-anchor="end" style="fill:var(--muted)">${time(t1)}</text>`;
+}
+
+function render() {
+  const t1 = Date.now();
+  const list = samples().filter((p) => p.t >= t1 - Number($("#span").value) * 3600e3);
+  // Start the x-axis at the first sample so a fresh recording is not squeezed into one pixel.
+  const t0 = list.length ? Math.min(list[0].t, t1 - 60e3) : t1 - 60e3;
+  $("#chart").innerHTML = axes(t0, t1) +
+    series(list, "rsrp", RSRP, t0, t1, "--accent") +
+    series(list, "sinr", SINR, t0, t1, "--ok");
+  const last = list.at(-1);
+  $("#now").textContent = last ? `最新 RSRP ${last.rsrp ?? "-"} / SINR ${last.sinr ?? "-"} · ${list.length} 个样本` : "暂无数据";
+  const changes = list.filter((p, i) => i === 0 || p.earfcn !== list[i - 1].earfcn || p.pci !== list[i - 1].pci || p.band !== list[i - 1].band);
+  $("#changes").innerHTML = changes.reverse().slice(0, 50).map((p) =>
+    `<tr><td>${esc(fmtTime(p.t))}</td><td>${esc(p.plmn)}</td><td>${esc(p.band || "")}</td><td>${p.earfcn ?? ""}</td><td>${p.pci ?? ""}</td><td>${p.rsrp ?? ""}</td></tr>`).join("");
+}
+
+function restart() {
+  clearInterval(timer);
+  sample();
+  timer = setInterval(sample, Number($("#every").value) * 1000);
+}
+
+$("#every").value = store.get("signal.every", "30");
+$("#every").addEventListener("change", () => { store.set("signal.every", $("#every").value); restart(); });
+$("#span").addEventListener("change", render);
+$("#device").addEventListener("change", restart);
+$("#clear").addEventListener("click", (e) => { if (confirmClick(e.target, "确认清空")) { store.set(key(), []); render(); } });
+deviceSelect($("#device"), "signal", (d) => d.deviceType !== "usb_sim_reader").then(restart).catch((e) => { $("#status").textContent = e.message; });
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "vocat-balance",
+  "name": "VoCat Balance & Keep-alive",
+  "version": "2.3.2",
+  "description": "Per-SIM balance queries (USSD/SMS) with carrier presets and background runs, plus expiry/inactivity countdown, SIM records and keep-alive tasks.",
+  "author": "tardis",
+  "contributions": [
+    {
+      "id": "balance",
+      "label": "Balance & Keep-alive",
+      "label_zh": "余额与保号",
+      "location": "sidebar",
+      "after": "sms",
+      "entry": "ussd.html"
+    }
+  ]
+}

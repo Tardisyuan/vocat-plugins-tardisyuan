@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "vocat-signal",
+  "name": "VoCat Signal",
+  "version": "1.0.2",
+  "description": "Record serving-cell RSRP/SINR history while the page is open.",
+  "author": "tardis",
+  "contributions": [
+    {
+      "id": "signal",
+      "label": "Signal History",
+      "label_zh": "信号记录",
+      "location": "sidebar",
+      "after": "sms",
+      "entry": "signal.html"
+    }
+  ]
+}

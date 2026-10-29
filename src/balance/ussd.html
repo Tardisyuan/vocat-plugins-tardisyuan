@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>余额与保号</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .q { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+  .q .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .q .amount { font: 600 28px ui-monospace, Menlo, monospace; }
+  .q .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .q .actions button:first-child { flex: 1; }
+  .q details summary { cursor: pointer; }
+  .reply { display: flex; gap: 6px; }
+  .reply input { flex: 1; min-width: 0; }
+  .presets button { font-size: 12px; padding: 4px 8px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .tile { text-align: left; background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .tile.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .tile .fig { font: 600 18px ui-monospace, Menlo, monospace; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .warn { color: #d97706; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+  .kv > span:nth-child(odd) { color: var(--muted); }
+  .form { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; align-items: center; font-size: 13px; }
+  .form input { width: 100%; }
+  .keep { display: flex; flex-direction: column; gap: 8px; }
+  .keep .big { font: 600 22px ui-monospace, Menlo, monospace; }
+  .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="tiles" id="devices"></div>
+
+<div class="head">
+  <strong id="devName"></strong>
+  <span id="sim" class="pill"></span>
+  <span id="ims" class="pill"></span>
+  <label class="muted">到期日 <input type="date" id="expiry"></label>
+  <span id="days"></span>
+  <span class="muted">查询结果里有到期日时会自动更新</span>
+</div>
+
+<div class="grid" id="queries"></div>
+
+<details class="card" id="addBox" style="margin-top:12px">
+  <summary>添加查询</summary>
+  <div class="row presets" id="presets" style="margin-top:8px"></div>
+  <div class="row" style="margin:0">
+    <select id="type"><option value="ussd">USSD</option><option value="sms">短信</option></select>
+    <input id="name" placeholder="名称，如 余额" size="10">
+    <input id="code" placeholder="USSD，如 *100#" size="12">
+    <input id="smsText" placeholder="短信内容，如 BAL" size="8" hidden>
+    <button id="add">添加</button>
+  </div>
+</details>
+<h2>保号</h2>
+<div class="card keep" id="keep"></div>
+<p class="muted">「还剩」取到期日和保号周期两者中更早的那个。「上次使用」取发出短信、运营商扣费提醒、成功执行的自动任务里最新的一条。保号周期请按运营商规则自己填；带「约」的天数是按建议值估算的。</p>
+
+<h2>余额趋势</h2>
+<div class="card" id="trend"></div>
+
+<h2>费用汇总（所有卡）</h2>
+<div class="card" id="costs"></div>
+<p class="muted">月费取自每张卡「卡片档案」里填的内容，按币种分别相加，不做汇率换算。</p>
+
+<h2>日历提醒</h2>
+<div class="card">
+  <div class="row" style="margin:0">
+    <button id="icsBtn">导出到期日历（.ics）</button>
+    <span class="muted" id="icsStatus"></span>
+  </div>
+  <p class="muted" style="margin-bottom:0">包括每张卡的到期日（提前 7 天和 1 天提醒）和保号截止日（提前 14 天和 3 天提醒，按建议值估算的会标「约」）。在手机上打开导出的文件即可加进日历，不需要 VoCat 一直开着。日期变了以后重新导出一次；同一张卡的事件编号不变，有的日历会直接更新，有的会新增一条。</p>
+</div>
+
+<h2>数据备份</h2>
+<div class="card">
+  <div class="row" style="margin:0">
+    <button id="exportBtn">导出备份</button>
+    <label class="ghost" style="cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:6px 10px">导入备份<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+    <span class="muted" id="backupStatus"></span>
+  </div>
+  <p class="muted" style="margin-bottom:0">备份包括查询列表和历史、到期日、卡片档案、信号记录等所有插件数据（都存在当前浏览器里）。导入会覆盖备份里有的项目，备份里没有的保持不变。</p>
+  <textarea id="backupText" rows="6" hidden></textarea>
+</div>
+<p class="muted">查询在 VoCat 页面后台运行：切到别的页面不会中断，回来就能看到结果。刷新或关闭浏览器标签页会中断正在进行的查询。</p>
+
+<script src="core.js"></script>
+<script src="presets.js"></script>
+<script src="common.js"></script>
+<script>
+// Balance checks per carrier, generated from research/*.json (see README). plmn is the SIM's
+// home network; match separates brands sharing one PLMN (Ultra runs on T-Mobile's 310260).
+const PRESETS = (window.BALANCE_PRESETS || []).map((p) => ({
+  ...p,
+  re: new RegExp(p.match, "i"),
+  // One carrier can have several checks (INFO vs PLAN), so the card name says which.
+  name: `${p.carrier} · ${p.to ? "短信 " + p.text : p.code}`,
+}));
+const presetStatus = (p) => p.tested === true ? "已实测" : p.tested === false ? "实测不可用" : "未验证";
+
+
+let devices = [];
+let selected = store.get("ussd.device", "");
+let toolkit = vocatToolkit; // replaced by the host page's copy once it is loaded
+let showAll = false;
+const { qKey, qLabel, historyKey, sessionKey, jobKey, simInfo: sim } = vocatToolkit;
+const dev = () => selected;
+const device = () => devices.find((d) => d.id === dev());
+const queries = () => store.get("ussd.queries." + dev(), []);
+const saveQueries = (q) => store.set("ussd.queries." + dev(), q);
+const history = (q) => store.get(historyKey(dev(), q), []);
+const isReader = (d = device()) => d?.deviceType === "usb_sim_reader";
+const runningSince = (q) => toolkit.jobs[jobKey(dev(), q)];
+
+// Load core.js into the VoCat page so queries outlive this iframe.
+async function hostToolkit() {
+  try {
+    const host = window.parent;
+    if (host === window) return vocatToolkit;
+    if (!host.vocatToolkit) {
+      await new Promise((resolve, reject) => {
+        const s = host.document.createElement("script");
+        s.src = new URL("core.js", location.href).href;
+        s.onload = resolve;
+        s.onerror = reject;
+        host.document.head.append(s);
+      });
+    }
+    // An older copy from before a plugin upgrade stays until VoCat is reloaded; don't mix versions.
+    return host.vocatToolkit?.version === vocatToolkit.version ? host.vocatToolkit : vocatToolkit;
+  } catch {
+    return vocatToolkit;
+  }
+}
+
+function matchingPresets(d) {
+  const { plmns, names } = sim(d);
+  const byPlmn = PRESETS.filter((p) => plmns.includes(p.plmn));
+  const byName = PRESETS.filter((p) => names.some((n) => p.re.test(n)));
+  // A brand name narrows a shared PLMN (Ultra vs T-Mobile); without one, offer every brand on it.
+  // Names alone are only trusted when the SIM reports no PLMN, since short brand words collide across countries.
+  const narrowed = byPlmn.filter((p) => byName.includes(p));
+  return plmns.length ? (narrowed.length ? narrowed : byPlmn) : byName;
+}
+
+
+const simLabel = (d) => { const s = sim(d); return [s.country, s.carrier].filter(Boolean).join(" · ") || "未识别的卡"; };
+const monthFirst = (d) => ["美国", "加拿大"].includes(sim(d).country);
+const parsed = (d, r) => vocatToolkit.parseReply(r.text, { monthFirst: monthFirst(d) });
+
+// How a query can reach the carrier right now: [label, css class].
+function status(d) {
+  const unregistered = d && !d.vowifiEnabled && (d.radioRegistered === false || /not registered|searching|denied/i.test(d.modem?.regStatusText || ""));
+  return isReader(d) ? ["读卡器 · 只能短信查询", "muted"]
+    : unregistered ? [`蜂窝网络未注册（${d.modem?.regStatusText || "未知"}）· USSD 发不出去`, "bad"]
+    : d?.vowifiEnabled ? (d.vowifiRuntime?.imsReady ? ["WiFi Calling 已注册", "ok"] : ["WiFi Calling 未注册", "bad"]) : ["走蜂窝网络", "muted"];
+}
+
+function expiryDays(id) {
+  const v = store.get("ussd.expiry." + id, "");
+  return v ? Math.ceil((new Date(v) - new Date().setHours(0, 0, 0, 0)) / 86400e3) : null;
+}
+const daysText = (n) => n >= 0 ? `还剩 ${n} 天` : `已过期 ${-n} 天`;
+
+// Newest successful reply across a device's queries, for its tile.
+function latest(d) {
+  const results = store.get("ussd.queries." + d.id, [])
+    .map((q) => store.get(historyKey(d.id, q), []).filter((r) => !r.error).at(-1))
+    .filter(Boolean).sort((a, b) => b.t - a.t);
+  return results[0] ? { t: results[0].t, ...parsed(d, results[0]) } : null;
+}
+
+// Replies saved before expiry write-back existed still carry a date; use it when none is stored.
+function backfillExpiry(d) {
+  const l = latest(d);
+  if (l?.expiry && !store.get("ussd.expiry." + d.id, "")) store.set("ussd.expiry." + d.id, l.expiry);
+}
+
+function renderTiles() {
+  devices.forEach(backfillExpiry);
+  $("#devices").innerHTML = devices.map((d) => {
+    const [st, cls] = status(d);
+    const l = latest(d);
+    const { worst: n, estimated } = risk(d);
+    return `<button class="tile ${d.id === dev() ? "sel" : ""}" data-dev="${esc(d.id)}">
+      <div class="row" style="margin:0;justify-content:space-between"><strong>${esc(d.name || d.id)}</strong><span class="muted">${esc(TYPE[d.deviceType] || d.deviceType || "")}</span></div>
+      <div class="muted">${esc(simLabel(d))}</div>
+      <span class="${cls}" style="font-size:12px">${esc(st)}</span>
+      <div class="fig">${esc(l ? l.moneyText ?? l.data ?? "—" : "—")}</div>
+      <div class="muted">${l ? esc(ago(l.t)) : "还没查过"}${activityLoading ? " · 计算中…" : n !== null ? ` · <span class="${riskCls(n)}">${estimated ? "约" : ""}${daysText(n)}</span>` : ""}</div>
+    </button>`;
+  }).join("") || `<p class="muted">没有运行中的设备</p>`;
+}
+
+function renderHeader() {
+  const d = device();
+  const s = sim(d);
+  $("#devName").textContent = d?.name || "";
+  $("#sim").textContent = [s.country, s.carrier, s.plmns[0]].filter(Boolean).join(" · ") || "没识别出这张卡的运营商";
+  const [st, cls] = status(d);
+  $("#ims").textContent = st;
+  $("#ims").className = "pill " + cls;
+  $("#expiry").value = store.get("ussd.expiry." + dev(), "");
+  const n = expiryDays(dev());
+  $("#days").className = "pill " + (n === null ? "" : n <= 7 ? "bad" : "ok");
+  $("#days").textContent = n === null ? "" : daysText(n);
+  $("#days").hidden = n === null;
+}
+
+function renderPresets() {
+  const have = new Set(queries().map(qKey));
+  const matched = matchingPresets(device());
+  const usable = (p) => !have.has(qKey(p)) && (p.to || !isReader());
+  const shown = (showAll ? PRESETS : matched).filter(usable);
+  const s = sim(device());
+  $("#presets").innerHTML =
+    shown.map((p) => `<button class="ghost" data-preset="${PRESETS.indexOf(p)}" title="${esc(`${p.note}\n来源：${p.source}`)}">${esc(p.name)} · ${esc(qLabel(p))} <span class="${p.tested === true ? "ok" : "muted"}">${presetStatus(p)}</span></button>`).join("") +
+    (!shown.length && !showAll ? `<span class="muted">${
+      !matched.length ? `没有「${esc(s.carrier || s.plmns[0] || "这张卡")}」的预设，可以在下面手动添加。`
+      : matched.every((p) => have.has(qKey(p))) ? "这张卡的预设都已添加。"
+      : "读卡器只能用短信查询，这张卡没有短信方式的预设。"}</span>` : "") +
+    `<button class="link" id="toggleAll">${showAll ? "只看这张卡的" : "显示全部预设"}</button>`;
+}
+
+// --- Keep-alive: how long until this SIM expires or is cut off for inactivity ---
+
+// Suggested "use the SIM at least every N days" per carrier, from the carrier's own wording.
+// Only a suggestion: the page labels anything computed from it as an estimate.
+const CYCLES = [
+  { match: /giffgaff/i, days: 180, why: "giffgaff 官方说法是 6 个月内没有使用会停号，按 180 天估算" },
+];
+const suggestedCycle = (d) => CYCLES.find((c) => sim(d).names.some((n) => c.match.test(n)));
+let lastUse = {}, tasks = [];
+
+const iccidOf = (d) => d?.modem?.iccid || d?.vowifiRuntime?.iccid || "";
+const recKey = (d) => "sim." + (iccidOf(d) || d.id);
+const rec = (d) => store.get(recKey(d), null) || { phone: d.vowifiRuntime?.localPhone || "" };
+const saveRec = (d, patch) => store.set(recKey(d), { ...rec(d), ...patch });
+const riskCls = (n) => n == null ? "" : n <= 7 ? "bad" : n <= 30 ? "warn" : "ok";
+
+// Carrier texts that confirm a billed use of the SIM ("that text was charged ... balance is now £9.31").
+// They are the strongest evidence the carrier saw activity, so they count as "last use".
+const CHARGE_NOTICES = [
+  { sender: /giffgaff/i, re: /was charged from your giffgaff credit/i, label: "giffgaff 扣费提醒" },
+];
+
+async function chargeNotices(contacts) {
+  const found = [];
+  for (const c of contacts) {
+    const n = CHARGE_NOTICES.find((x) => x.sender.test(c.peer || ""));
+    if (!n) continue;
+    const thread = await api(`/sms/thread?peer=${encodeURIComponent(c.peer)}&limit=50&device_id=${encodeURIComponent(c.deviceId)}`).catch(() => []) || [];
+    for (const hit of thread.filter((m) => n.re.test(m.content || m.body || ""))) {
+      const money = vocatToolkit.parseReply(hit.content || hit.body).moneyText;
+      found.push({ deviceId: c.deviceId, t: new Date(hit.timestamp).getTime(), how: `${n.label}${money ? `（扣费后余额 ${money}）` : ""}` });
+    }
+  }
+  return found;
+}
+
+// Most recent sign of use per device: outbound SMS, carrier charge notice, or successful automatic task.
+async function loadActivity() {
+  const [contacts, runs, t] = await Promise.all([
+    api("/sms/contacts?limit=200").catch(() => []),
+    api("/automatic-tasks/runs?limit=200&offset=0").then((r) => r.runs || []).catch(() => []),
+    api("/automatic-tasks").then((x) => x.tasks || []).catch(() => []),
+  ]);
+  // Per device: the newest of each kind, plus the newest overall (which drives the countdown).
+  const out = {};
+  const bump = (id, kind, at, how, counts = true) => {
+    if (!at) return;
+    const o = out[id] ||= { kinds: {} };
+    if (!o.kinds[kind] || at > o.kinds[kind].t) o.kinds[kind] = { t: at, how };
+    if (counts && (!o.t || at > o.t)) Object.assign(o, { t: at, how });
+  };
+  for (const c of contacts || []) {
+    if (!["outbound", "sent"].includes(c.direction)) continue;
+    const at = new Date(c.lastTimestamp).getTime();
+    // Texts to short codes or named senders (85075, 9999, "giffgaff") are carrier service queries; they are
+    // shown but don't count as use, since carriers are unlikely to treat them as keeping the number alive.
+    if (isServiceNumber(c.peer)) bump(c.deviceId, "query", at, `发短信给 ${c.peer}`, false);
+    else bump(c.deviceId, "sms", at, `发短信给 ${c.peer}`);
+  }
+  for (const r of runs) {
+    if (r.status === "success") bump(r.deviceId, "task", new Date(r.finishedAt || r.startedAt || r.scheduledAt).getTime(), "自动任务");
+  }
+  const charges = await chargeNotices(contacts || []);
+  for (const n of charges) bump(n.deviceId, "charge", n.t, n.how);
+  allContacts = contacts || [];
+  await guardSchedules(t, runs, charges);
+  lastUse = out;
+  tasks = t;
+}
+
+function risk(d) {
+  const r = rec(d);
+  const exp = store.get("ussd.expiry." + d.id, "");
+  const expDays = exp ? daysUntil(exp) : null;
+  const use = lastUse[d.id];
+  const hint = r.cycle ? null : suggestedCycle(d);
+  const cycle = Number(r.cycle) || hint?.days;
+  const idleLeft = cycle && use ? Math.ceil(cycle - (Date.now() - use.t) / 86400e3) : null;
+  const known = [expDays, idleLeft].filter((n) => n != null);
+  const worst = known.length ? Math.min(...known) : null;
+  // "约" when the deciding number comes from a suggested cycle rather than a known date or your own setting.
+  const estimated = !!hint && idleLeft != null && worst === idleLeft && worst !== expDays;
+  return { r, expDays, use, idleLeft, hint, worst, estimated };
+}
+
+// Each kind of evidence on its own line, so you can see what was (and wasn't) found.
+const isServiceNumber = (peer) => /^\d{1,6}$/.test(String(peer || "").trim()) || /[a-z]/i.test(String(peer || ""));
+
+function activityRows(d, use) {
+  if (activityLoading) return `<span>· 记录</span><span class="muted">正在倒查短信、扣费提醒和自动任务…</span>`;
+  const k = use?.kinds || {};
+  const line = (label, x, none) => `<span>· ${label}</span><span class="muted">${x ? `${esc(ago(x.t))}（${esc(fmtTime(x.t))}）${x.how.startsWith(label) ? "" : " · " + esc(x.how)}` : none}</span>`;
+  const notice = CHARGE_NOTICES.find((n) => sim(d).names.some((name) => n.sender.test(name)));
+  return line("发出短信", k.sms, "没找到")
+    + (k.query ? `<span>· 查询短信</span><span class="muted">${esc(ago(k.query.t))}（${esc(fmtTime(k.query.t))}）· ${esc(k.query.how)} · 发给运营商服务号码，不计入保号</span>` : "")
+    + (notice ? line(notice.label, k.charge, `没找到（在发件人含「${notice.sender.source}」的最近 50 条短信里找）`) : "")
+    + line("自动任务", k.task, "没有成功执行的记录");
+}
+
+function renderKeep() {
+  const d = device();
+  // Keep the task form / record panel open across re-renders.
+  const open = [...document.querySelectorAll("#keep details")].map((x) => x.open);
+  if (!d) { $("#keep").innerHTML = ""; return; }
+  const { r, use, idleLeft, hint, worst, estimated } = risk(d);
+  const own = tasks.filter((t) => t.deviceId === d.id);
+  const iccid = iccidOf(d);
+  $("#keep").innerHTML = `
+    <div class="big ${activityLoading ? "" : riskCls(worst)}">${activityLoading ? "正在倒查使用记录…" : worst == null ? "信息不足：先查一次余额，或填保号周期" : (estimated ? "约" : "") + (worst < 0 ? `已超期 ${-worst} 天` : `还剩 ${worst} 天`)}</div>
+    ${estimated ? `<div class="muted">估算值：${esc(hint.why)}。运营商不提供查询停号日期的方式，实际以运营商为准。</div>` : ""}
+    <div class="kv">
+      <span>上次使用</span><span>${use ? `${esc(ago(use.t))} · ${esc(use.how)}` : "没找到记录"}</span>
+      ${activityRows(d, use)}
+      <span>保号周期</span><span class="${riskCls(idleLeft)}">${r.cycle ? `${esc(r.cycle)} 天${idleLeft != null ? `，还剩 ${idleLeft} 天` : ""}`
+        : hint ? `未设置 · 建议约 ${hint.days} 天${idleLeft != null ? `，按此估算还剩约 ${idleLeft} 天` : ""}` : "未设置"}</span>
+      <span>自动任务</span><span>${own.length ? own.map((t) => `${esc(t.name)}（每 ${t.intervalDays} 天，下次 ${esc(t.nextRunAt ? fmtTime(t.nextRunAt) : "—")}${t.lastStatus ? "，上次 " + esc(t.lastStatus) : ""}）`).join("<br>") : "没有"}</span>
+    </div>
+    <details>
+      <summary class="muted">创建保号任务</summary>
+      ${iccid ? `<div class="form" style="margin-top:8px">
+        <span>发给号码</span><input data-f="taskPhone" placeholder="收短信的号码" value="${esc(r.taskPhone || "")}">
+        <span>短信内容</span><input data-f="taskMsg" value="${esc(r.taskMsg || "hi")}">
+        <span>每隔天数</span><input data-f="taskEvery" type="number" min="1" value="${esc(r.taskEvery || (r.cycle ? Math.max(1, Math.floor(r.cycle / 2)) : 30))}">
+        <span>执行时间</span><input data-f="taskTime" type="time" value="${esc(r.taskTime || "10:00")}">
+        <span></span><button data-create>在 VoCat 自动任务里创建</button>
+      </div>` : `<p class="muted">没读到这张卡的 ICCID，VoCat 自动任务需要它。等设备运行后再试。</p>`}
+    </details>
+    <details>
+      <summary class="muted">卡片档案</summary>
+      <div class="form" style="margin-top:8px">
+        <span>号码</span><input data-f="phone" value="${esc(r.phone || "")}">
+        <span>保号周期（天）</span><input data-f="cycle" type="number" min="1" value="${esc(r.cycle || "")}" placeholder="${hint ? `建议约 ${hint.days} 天` : "多久不用会被停卡"}">
+        <span>套餐</span><input data-f="plan" value="${esc(r.plan || "")}">
+        <span>月费</span><input data-f="cost" value="${esc(r.cost || "")}">
+        <span>充值方式</span><input data-f="topup" value="${esc(r.topup || "")}" placeholder="链接或说明">
+        <span>备注</span><input data-f="note" value="${esc(r.note || "")}">
+        <span>ICCID</span><span class="mono muted">${esc(iccid || "—")}</span>
+      </div>
+    </details>
+    <details>
+      <summary class="muted">充值记录（${(r.topups || []).length} 条）</summary>
+      ${topupRows(r)}
+      <div class="row" style="margin:8px 0 0">
+        <input data-t="date" type="date" value="${new Date().toISOString().slice(0, 10)}">
+        <input data-t="amount" placeholder="金额，如 $5" size="8">
+        <input data-t="channel" placeholder="渠道，如 官网、Ding" size="12">
+        <select data-t="ok"><option value="1">成功</option><option value="0">失败</option></select>
+        <input data-t="note" placeholder="备注，如 被退款" size="14">
+        <button data-addtopup>记一笔</button>
+      </div>
+    </details>
+    <span class="bad" id="keepStatus"></span>`;
+  document.querySelectorAll("#keep details").forEach((x, i) => { x.open = !!open[i]; });
+}
+
+async function createTask(d) {
+  const r = rec(d);
+  if (!r.taskPhone) { $("#keepStatus").textContent = "先填收短信的号码"; return; }
+  const b = $("[data-create]");
+  b.disabled = true;
+  try {
+    await api("/automatic-tasks", { method: "POST", body: {
+      name: `保号 · ${d.name || d.id}`,
+      enabled: true,
+      device_id: d.id,
+      profile_iccid: iccidOf(d),
+      profile_aid: "",
+      task_type: "sms",
+      // Readers only have WiFi Calling; modems use it when it is on.
+      environment: isReader(d) || d.vowifiEnabled ? "vowifi" : "cellular",
+      interval_days: Number(r.taskEvery || 30),
+      start_date: new Date().toISOString().slice(0, 10),
+      run_time: r.taskTime || "10:00",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      retry_count: 2,
+      notify: true,
+      revert_profile: false,
+      payload: { phone: r.taskPhone, message: r.taskMsg || "hi", duration_seconds: 0 },
+    } });
+    await loadActivity();
+    renderKeep();
+  } catch (e) {
+    $("#keepStatus").textContent = "创建失败：" + e.message;
+    b.disabled = false;
+  }
+}
+
+$("#keep").addEventListener("input", (e) => { const f = e.target.dataset.f; if (f && device()) saveRec(device(), { [f]: e.target.value }); });
+// Re-render on change, not on every keystroke, so the countdown follows edits without stealing focus.
+$("#keep").addEventListener("change", (e) => {
+  if (e.target.dataset.f === "cycle") { renderKeep(); renderTiles(); }
+  if (["cost", "plan"].includes(e.target.dataset.f)) renderCosts();
+});
+$("#keep").addEventListener("click", (e) => {
+  const b = e.target;
+  if (b.dataset.create !== undefined) createTask(device());
+  if (b.dataset.addtopup !== undefined) addTopup(device());
+  if (b.dataset.deltopup !== undefined && confirmClick(b, "确认删除")) {
+    const r = rec(device());
+    saveRec(device(), { topups: (r.topups || []).filter((_, i) => i !== Number(b.dataset.deltopup)) });
+    renderKeep();
+    renderCosts();
+  }
+});
+
+// --- Scheduled queries ---
+// A VoCat SMS task sends the query on a schedule; this page picks the reply up whenever it is open.
+// Only offered when the carrier's own page says the text is free, and stopped if a charge shows up.
+
+const SCHEDULE_PREFIX = "查余额 · ";
+let allContacts = [];
+const presetOf = (q) => q.to ? PRESETS.find((p) => p.to === q.to && p.text === q.text) : null;
+const chargedKey = (deviceId, q) => `ussd.charged.${deviceId}.${qKey(q)}`;
+const scheduleOf = (deviceId, q) => tasks.find((t) => t.deviceId === deviceId && t.taskType === "sms"
+  && t.payload?.phone === q.to && t.payload?.message === q.text);
+
+function scheduleBlock(q, i) {
+  if (!q.to) return `<div class="muted">USSD 不能定期查询：VoCat 自动任务只能发短信和打电话。</div>`;
+  if (store.get(chargedKey(dev(), q), "")) return `<div class="bad">发现定期查询之后紧跟着扣费提醒，已自动停用这条定期查询。</div>`;
+  const free = presetOf(q)?.free;
+  if (!free) return `<div class="muted">没有资料确认这条查询免费，不提供定期查询。</div>`;
+  const why = free === "official" ? "官方写明免费" : "实测未扣费，官方未写明";
+  const t = scheduleOf(dev(), q);
+  if (t) return `<div class="muted">定期查询：每 ${t.intervalDays} 天${t.enabled ? "" : "（已停用）"}，下次 ${t.nextRunAt ? esc(fmtTime(t.nextRunAt)) : "—"}。在 VoCat 自动任务里修改或删除。</div>`;
+  return `<div class="row" style="margin:0"><span class="muted">定期查询（${why}）：每</span><input type="number" min="7" value="30" style="width:64px" data-every="${i}"><span class="muted">天</span><button class="ghost" data-schedule="${i}">开启</button></div>`;
+}
+
+async function createSchedule(q, every, button) {
+  const d = device();
+  if (!iccidOf(d)) { button.textContent = "缺少 ICCID，等设备运行后再试"; return; }
+  button.disabled = true;
+  try {
+    await api("/automatic-tasks", { method: "POST", body: {
+      name: SCHEDULE_PREFIX + (q.name || qLabel(q)),
+      enabled: true,
+      device_id: d.id,
+      profile_iccid: iccidOf(d),
+      profile_aid: "",
+      task_type: "sms",
+      environment: isReader(d) || d.vowifiEnabled ? "vowifi" : "cellular",
+      interval_days: Math.max(7, Number(every) || 30),
+      start_date: new Date().toISOString().slice(0, 10),
+      run_time: "10:00",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      retry_count: 1,
+      notify: false,
+      revert_profile: false,
+      payload: { phone: q.to, message: q.text, duration_seconds: 0 },
+    } });
+    await loadActivity();
+    lastState = "";
+  } catch (e) {
+    button.textContent = "开启失败：" + e.message;
+    button.disabled = false;
+  }
+}
+
+const snake = (v) => Array.isArray(v) ? v.map(snake) : v && typeof v === "object"
+  ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase()), snake(x)])) : v;
+
+// If a carrier charge notice lands within 15 minutes after a scheduled query ran, that query is not free:
+// stop the task and never offer scheduling for it again on this card.
+async function guardSchedules(allTasks, runs, charges) {
+  for (const t of allTasks.filter((x) => x.name?.startsWith(SCHEDULE_PREFIX) && x.enabled)) {
+    const charged = runs.some((r) => r.taskId === t.id && charges.some((c) => {
+      const ran = new Date(r.finishedAt || r.startedAt || r.scheduledAt).getTime();
+      return c.deviceId === t.deviceId && c.t >= ran - 60e3 && c.t <= ran + 15 * 60e3;
+    }));
+    if (!charged) continue;
+    store.set(chargedKey(t.deviceId, { to: t.payload.phone, text: t.payload.message }), new Date().toISOString());
+    await api(`/automatic-tasks/${t.id}`, { method: "PUT", body: snake({ ...t, enabled: false }) }).catch(() => {});
+    t.enabled = false;
+  }
+}
+
+// Replies that arrived while this page was closed (scheduled runs, or a query whose page was left).
+async function pickupReplies() {
+  for (const d of devices) {
+    for (const q of store.get("ussd.queries." + d.id, []).filter((x) => x.to)) {
+      if (toolkit.jobs[jobKey(d.id, q)]) continue; // the running query will record its own reply
+      const h = store.get(historyKey(d.id, q), []);
+      const since = h.at(-1)?.t || 0;
+      const replyFrom = q.replyFrom || presetOf(q)?.replyFrom;
+      const peers = [q.to, ...allContacts.filter((c) => c.deviceId === d.id && replyFrom
+        && String(c.peer || "").toLowerCase().includes(replyFrom.toLowerCase())).map((c) => c.peer)];
+      const msgs = (await Promise.all(peers.map((peer) =>
+        api(`/sms/thread?peer=${encodeURIComponent(peer)}&limit=20&device_id=${encodeURIComponent(d.id)}`).catch(() => [])))).flat();
+      const fresh = msgs.filter((m) => m && ["inbound", "received"].includes(m.direction))
+        .map((m) => ({ t: new Date(m.timestamp).getTime(), text: m.content || m.body || "" }))
+        .filter((m) => m.t > since + 1000 && !h.some((r) => r.text === m.text && Math.abs(r.t - m.t) < 600e3))
+        .map((m) => ({ ...m, ...vocatToolkit.parseReply(m.text, { monthFirst: monthFirst(d) }) }))
+        .filter((m) => m.money != null || m.data || m.expiry)
+        .sort((a, b) => a.t - b.t);
+      if (!fresh.length) continue;
+      store.set(historyKey(d.id, q), [...h, ...fresh.map((m) => ({ ...m, amount: m.money, via: "短信回复" }))].slice(-200));
+      const exp = fresh.map((m) => m.expiry).filter(Boolean).at(-1);
+      if (exp) store.set("ussd.expiry." + d.id, exp);
+    }
+  }
+}
+
+// --- Balance trend: money figures from every successful reply of this card ---
+
+function renderTrend() {
+  const d = device();
+  const pts = queries().flatMap((q) => history(q).filter((r) => !r.error).map((r) => ({ t: r.t, ...parsed(d, r) })))
+    .filter((p) => p.money != null).sort((a, b) => a.t - b.t);
+  if (pts.length < 2) {
+    $("#trend").innerHTML = `<span class="muted">${pts.length ? "只有 1 次带金额的查询结果，至少要 2 次才能画趋势。" : "还没有带金额的查询结果。"}</span>`;
+    return;
+  }
+  const W = 800, H = 160, X0 = 50, X1 = 780, Y0 = 10, Y1 = 140;
+  const t0 = pts[0].t, t1 = pts.at(-1).t;
+  const lo = Math.min(...pts.map((p) => p.money)), hi = Math.max(...pts.map((p) => p.money));
+  const span = hi - lo || 1;
+  const x = (t) => X0 + (t - t0) / (t1 - t0 || 1) * (X1 - X0);
+  const y = (v) => Y1 - (v - lo) / span * (Y1 - Y0);
+  const xy = pts.map((p) => [x(p.t).toFixed(1), y(p.money).toFixed(1)]);
+  const first = pts[0], last = pts.at(-1);
+  const diff = +(last.money - first.money).toFixed(2);
+  const day = (t) => new Date(t).toLocaleDateString();
+  $("#trend").innerHTML = `
+    <div class="row" style="margin:0">
+      <strong>${esc(last.moneyText)}</strong>
+      <span class="${diff < 0 ? "bad" : "ok"}">${diff > 0 ? "+" : ""}${diff}（相比 ${esc(day(first.t))}）</span>
+      <span class="muted">${pts.length} 次查询</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}">
+      <line x1="${X0}" x2="${X1}" y1="${y(hi)}" y2="${y(hi)}" style="stroke:var(--line)"/>
+      <line x1="${X0}" x2="${X1}" y1="${y(lo)}" y2="${y(lo)}" style="stroke:var(--line)"/>
+      <text x="${X0 - 4}" y="${y(hi)}" text-anchor="end" dominant-baseline="middle" style="fill:var(--muted)">${hi}</text>
+      <text x="${X0 - 4}" y="${y(lo)}" text-anchor="end" dominant-baseline="middle" style="fill:var(--muted)">${lo}</text>
+      <polyline fill="none" style="stroke:var(--accent)" stroke-width="2" points="${xy.join(" ")}"/>
+      ${xy.map(([a, b]) => `<circle cx="${a}" cy="${b}" r="3" style="fill:var(--accent)"/>`).join("")}
+      <text x="${X0}" y="${H - 2}" style="fill:var(--muted)">${esc(day(t0))}</text>
+      <text x="${X1}" y="${H - 2}" text-anchor="end" style="fill:var(--muted)">${esc(day(t1))}</text>
+    </svg>`;
+}
+
+// --- Cost summary across every card, from the "月费" field of each card record ---
+
+// "£10", "10 GBP", "AUD 30", "25" -> { amount, currency }; currency is "" when not written.
+function parseCost(text) {
+  const t = String(text || "").trim();
+  const m = t.match(/([$£€¥])\s?(\d+(?:[.,]\d+)?)/) || t.match(/(\d+(?:[.,]\d+)?)\s?([A-Za-z]{3}|元|镑)/) || t.match(/([A-Za-z]{3})\s?(\d+(?:[.,]\d+)?)/);
+  if (m) {
+    const num = /\d/.test(m[1]) ? m[1] : m[2];
+    const cur = /\d/.test(m[1]) ? m[2] : m[1];
+    return { amount: Number(num.replace(",", ".")), currency: cur.length === 3 ? cur.toUpperCase() : cur };
+  }
+  const n = t.match(/\d+(?:[.,]\d+)?/);
+  return n ? { amount: Number(n[0].replace(",", ".")), currency: "" } : null;
+}
+
+function renderCosts() {
+  const rows = devices.map((d) => ({ d, r: rec(d), c: parseCost(rec(d).cost) }));
+  const sums = {};
+  for (const { c } of rows) if (c) sums[c.currency] = (sums[c.currency] || 0) + c.amount;
+  const fmt = (cur, v) => cur.length === 1 ? `${cur}${+v.toFixed(2)}` : `${+v.toFixed(2)}${cur ? " " + cur : "（未注明币种）"}`;
+  const total = Object.entries(sums).map(([cur, v]) => fmt(cur, v));
+  const yearly = Object.entries(sums).map(([cur, v]) => fmt(cur, v * 12));
+  const paid = {};
+  const paidText = (o) => Object.entries(o).map(([cur, v]) => fmt(cur, v)).join(" + ");
+  for (const { d } of rows) for (const [cur, v] of Object.entries(topupTotals(d))) paid[cur] = (paid[cur] || 0) + v;
+  $("#costs").innerHTML = `
+    <table>
+      <tr><th>卡</th><th>运营商</th><th>套餐</th><th>月费</th><th>近 12 个月实际充值</th></tr>
+      ${rows.map(({ d, r }) => `<tr><td>${esc(d.name || d.id)}</td><td>${esc(sim(d).carrier || "")}</td><td>${esc(r.plan || "")}</td><td>${esc(r.cost || "—")}</td><td>${esc(paidText(topupTotals(d)) || "—")}</td></tr>`).join("")}
+    </table>
+    <div class="row" style="margin:8px 0 0">${total.length
+      ? `<strong>每月合计 ${esc(total.join(" + "))}</strong><span class="muted">每年约 ${esc(yearly.join(" + "))}</span>`
+      : `<span class="muted">还没有填月费：在每张卡的「卡片档案」里填，比如 £10 或 30 AUD。</span>`}</div>
+    ${Object.keys(paid).length ? `<div class="muted" style="margin-top:4px">近 12 个月实际充值合计 ${esc(paidText(paid))}（只算记为成功的充值）</div>` : ""}`;
+}
+
+// --- Calendar: expiry and keep-alive deadlines as an .ics file, so the phone's calendar can remind you ---
+
+const icsText = (s) => String(s).replace(/[\\;,]/g, (c) => "\\" + c).replace(/\n/g, "\\n");
+// Local calendar date: toISOString() would shift it to UTC and move the event a day earlier east of UTC.
+const icsDate = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+
+function calendarEvents() {
+  const events = [];
+  for (const d of devices) {
+    const label = `${d.name || d.id}${sim(d).carrier ? "（" + sim(d).carrier + "）" : ""}`;
+    const exp = store.get("ussd.expiry." + d.id, "");
+    if (exp) events.push({ id: `${d.id}-expiry`, date: new Date(exp + "T00:00:00"), title: `到期：${label}`,
+      note: "到期日来自余额查询结果或手动填写。", alarms: [7, 1] });
+    const { r, use, hint } = risk(d);
+    const cycle = Number(r.cycle) || hint?.days;
+    if (cycle && use) {
+      const date = new Date(use.t + cycle * 86400e3);
+      events.push({ id: `${d.id}-keepalive`, date, title: `${hint && !r.cycle ? "约" : ""}保号截止：${label}`,
+        note: `按上次使用（${fmtTime(use.t)}，${use.how}）加保号周期 ${cycle} 天推算${hint && !r.cycle ? "，周期是建议值，实际以运营商为准" : ""}。`, alarms: [14, 3] });
+    }
+  }
+  return events;
+}
+
+function buildICS(events) {
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//vocat-toolkit//balance//ZH", "CALSCALE:GREGORIAN"];
+  for (const e of events) {
+    const next = new Date(e.date.getTime() + 86400e3);
+    lines.push("BEGIN:VEVENT", `UID:${e.id}@vocat-toolkit`, `DTSTAMP:${now}`,
+      `DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(next)}`,
+      `SUMMARY:${icsText(e.title)}`, `DESCRIPTION:${icsText(e.note)}`);
+    for (const days of e.alarms) {
+      lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${icsText(e.title)}`, `TRIGGER:-P${days}D`, "END:VALARM");
+    }
+    lines.push("END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n") + "\r\n";
+}
+
+$("#icsBtn").addEventListener("click", () => {
+  const events = calendarEvents();
+  if (!events.length) { $("#icsStatus").textContent = "还没有可导出的日期：先查一次余额拿到到期日，或填保号周期。"; return; }
+  const name = `vocat-sim-calendar-${new Date().toISOString().slice(0, 10)}.ics`;
+  $("#icsStatus").textContent = download(name, buildICS(events), "text/calendar")
+    ? `已导出 ${events.length} 个日期：${name}。在手机上打开这个文件，加进日历即可。`
+    : "浏览器不允许下载文件。";
+});
+
+// --- Top-up records per card: what was paid, where, and whether it went through ---
+
+function topupRows(r) {
+  const list = (r.topups || []).map((x, i) => ({ ...x, i })).sort((a, b) => b.date.localeCompare(a.date));
+  return list.length ? `<table>${list.map((x) => `<tr>
+      <td>${esc(x.date)}</td><td>${esc(x.amount || "")}</td><td>${esc(x.channel || "")}</td>
+      <td class="${x.ok ? "ok" : "bad"}">${x.ok ? "成功" : "失败"}</td><td class="muted">${esc(x.note || "")}</td>
+      <td><button class="ghost" data-deltopup="${x.i}">删除</button></td></tr>`).join("")}</table>`
+    : `<p class="muted">还没有记录。</p>`;
+}
+
+function addTopup(d) {
+  const v = (k) => $(`[data-t="${k}"]`).value.trim();
+  if (!v("amount") && !v("channel")) return;
+  const r = rec(d);
+  saveRec(d, { topups: [...(r.topups || []), { date: v("date") || new Date().toISOString().slice(0, 10),
+    amount: v("amount"), channel: v("channel"), ok: v("ok") === "1", note: v("note") }] });
+  renderKeep();
+  renderCosts();
+}
+
+// Successful top-ups in the last 12 months, summed per currency.
+function topupTotals(d) {
+  const since = new Date(Date.now() - 365 * 86400e3).toISOString().slice(0, 10);
+  const sums = {};
+  for (const x of rec(d).topups || []) {
+    const c = x.ok && x.date >= since && parseCost(x.amount);
+    if (c) sums[c.currency] = (sums[c.currency] || 0) + c.amount;
+  }
+  return sums;
+}
+
+// --- Backup and restore of everything the plugins keep in this browser ---
+
+const PREFIX = "vocat-toolkit.";
+function exportData() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith(PREFIX)) data[k] = localStorage.getItem(k);
+  }
+  const json = JSON.stringify({ app: "vocat-toolkit", exportedAt: new Date().toISOString(), data }, null, 1);
+  const name = `vocat-plugins-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  if (download(name, json, "application/json")) {
+    $("#backupStatus").textContent = `已导出 ${Object.keys(data).length} 项：${name}`;
+  } else {
+    $("#backupText").hidden = false;
+    $("#backupText").value = json;
+    $("#backupStatus").textContent = "浏览器不允许下载，请复制下面的内容保存成 .json 文件。";
+  }
+}
+
+// The plugin iframe may not download files, so let the VoCat page itself save it. False if that is blocked too.
+function download(name, text, type) {
+  try {
+    const host = window.parent;
+    const url = host.URL.createObjectURL(new host.Blob([text], { type }));
+    const a = host.document.createElement("a");
+    a.href = url;
+    a.download = name;
+    host.document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => host.URL.revokeObjectURL(url), 10000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function importData(text) {
+  let parsedBackup;
+  try { parsedBackup = JSON.parse(text); } catch { $("#backupStatus").textContent = "文件不是有效的 JSON。"; return; }
+  const entries = Object.entries(parsedBackup?.data || {}).filter(([k, v]) => k.startsWith(PREFIX) && typeof v === "string");
+  if (parsedBackup?.app !== "vocat-toolkit" || !entries.length) { $("#backupStatus").textContent = "这不是本插件导出的备份。"; return; }
+  try {
+    for (const [k, v] of entries) localStorage.setItem(k, v);
+  } catch {
+    $("#backupStatus").textContent = "写入失败：浏览器存储空间不足或被禁用。";
+    return;
+  }
+  $("#backupStatus").textContent = `已导入 ${entries.length} 项，正在刷新…`;
+  setTimeout(() => location.reload(), 800);
+}
+
+$("#exportBtn").addEventListener("click", exportData);
+$("#importFile").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (file) importData(await file.text());
+  e.target.value = "";
+});
+
+function render() {
+  renderTiles();
+  renderKeep();
+  renderTrend();
+  renderCosts();
+  renderHeader();
+  renderPresets();
+  const list = queries();
+  $("#addBox").open = !list.length;
+  $("#queries").innerHTML = list.map((q, i) => {
+    const h = history(q);
+    const last = h.at(-1);
+    const p = last && !last.error ? parsed(device(), last) : null;
+    const prev = h.slice(0, -1).reverse().find((r) => !r.error && parsed(device(), r).money != null);
+    const delta = p?.money != null && prev ? +(p.money - parsed(device(), prev).money).toFixed(2) : null;
+    const chips = p ? [["余额", p.moneyText], ["流量", p.data], ["通话", p.talk], ["短信", p.sms], ["到期", p.expiry]]
+      .filter(([, v]) => v != null && v !== "").map(([k, v]) => `<span class="pill">${k} ${esc(v)}</span>`).join("") : "";
+    const since = runningSince(q);
+    const blocked = isReader() && !q.to;
+    const menuOpen = !q.to && store.get(sessionKey(dev(), q), "");
+    return `<div class="card q">
+      <div class="top"><strong>${esc(q.name)}</strong><span class="muted mono">${esc(qLabel(q))}</span></div>
+      ${last ? `
+        <div class="top">
+          <span class="amount ${last.error ? "bad" : ""}">${last.error ? "失败" : esc(p.moneyText ?? p.data ?? "—")}</span>
+          ${delta ? `<span class="${delta < 0 ? "bad" : "ok"}">${delta > 0 ? "+" : ""}${delta}</span>` : ""}
+        </div>
+        ${chips ? `<div class="chips">${chips}</div>` : ""}
+        <div class="muted">${esc(ago(last.t))} · ${esc(fmtTime(last.t))}</div>
+        <details><summary class="muted">${last.error ? "错误详情" : "运营商回复"}</summary><div class="mono muted">${esc(last.text)}</div></details>`
+        : `<div class="muted">还没有查询过</div>`}
+      ${menuOpen && !since ? `<div class="reply"><input data-reply-input="${i}" placeholder="菜单回复，如 1"><button data-reply="${i}">发送</button><button class="ghost" data-end="${i}">结束</button></div>` : ""}
+      ${h.length > 1 ? `<details><summary class="muted">历史 ${h.length} 次</summary><table>${h.slice().reverse().slice(0, 30).map((r) =>
+        `<tr><td>${esc(fmtTime(r.t))}</td><td>${r.error ? "失败" : esc((({ moneyText, data }) => moneyText ?? data ?? "—")(parsed(device(), r)))}</td></tr>`).join("")}</table></details>` : ""}
+      ${scheduleBlock(q, i)}
+      <div class="actions">
+        <button data-run="${i}" ${since || blocked ? "disabled" : ""}>${since ? `查询中… <span data-since="${since}"></span>` : blocked ? "读卡器不支持 USSD" : "查询"}</button>
+        <button class="ghost" data-del="${i}">删除</button>
+      </div>
+    </div>`;
+  }).join("");
+  tickElapsed();
+}
+
+function tickElapsed() {
+  for (const el of document.querySelectorAll("[data-since]")) el.textContent = `${Math.round((Date.now() - Number(el.dataset.since)) / 1000)} 秒`;
+}
+
+// Jobs run in the host page; re-render only when a job starts/finishes or a result lands,
+// so typing in a menu reply box is not interrupted every second.
+let lastState = "";
+function watch() {
+  const state = JSON.stringify([dev(), Object.keys(toolkit.jobs), queries().map((q) => [history(q).at(-1)?.t, store.get(sessionKey(dev(), q), "")])]);
+  // Wait while the user is typing; the change is picked up once focus leaves the field.
+  const typing = document.activeElement?.matches("input, textarea, select");
+  if (state !== lastState && !typing) { lastState = state; render(); } else tickElapsed();
+}
+
+function run(q, input) {
+  // Queries added before a preset learned its reply sender pick it up here.
+  const preset = q.to && PRESETS.find((p) => p.to === q.to && p.text === q.text);
+  if (preset?.replyFrom) q = { ...q, replyFrom: preset.replyFrom };
+  toolkit.runQuery(dev(), q, { input, viaWiFiCalling: !!device()?.vowifiEnabled, monthFirst: monthFirst(device()) });
+  watch();
+}
+
+function addQuery(q) {
+  if (!(q.code || (q.to && q.text)) || queries().some((x) => qKey(x) === qKey(q))) return;
+  saveQueries([...queries(), { ...q, name: q.name || qLabel(q) }]);
+  render();
+}
+
+$("#type").addEventListener("change", () => {
+  const sms = $("#type").value === "sms";
+  $("#code").placeholder = sms ? "号码，如 6700" : "USSD，如 *100#";
+  $("#smsText").hidden = !sms;
+});
+$("#add").addEventListener("click", () => {
+  const name = $("#name").value.trim(), code = $("#code").value.trim();
+  addQuery($("#type").value === "sms" ? { name, to: code, text: $("#smsText").value.trim() } : { name, code });
+  $("#name").value = $("#code").value = $("#smsText").value = "";
+});
+$("#presets").addEventListener("click", (e) => {
+  if (e.target.id === "toggleAll") { showAll = !showAll; return renderPresets(); }
+  const b = e.target.closest("[data-preset]");
+  if (b) {
+    const p = PRESETS[Number(b.dataset.preset)];
+    addQuery(p.to ? { name: p.name, to: p.to, text: p.text, replyFrom: p.replyFrom } : { name: p.name, code: p.code });
+  }
+});
+$("#queries").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const q = queries()[Number(b.dataset.run ?? b.dataset.reply ?? b.dataset.end ?? b.dataset.del ?? b.dataset.schedule)];
+  if (b.dataset.run !== undefined) run(q);
+  if (b.dataset.schedule !== undefined) createSchedule(q, $(`[data-every="${b.dataset.schedule}"]`).value, b);
+  if (b.dataset.reply !== undefined) {
+    const input = $(`[data-reply-input="${b.dataset.reply}"]`).value.trim();
+    if (input) run(q, input);
+  }
+  if (b.dataset.end !== undefined) { toolkit.cancelSession(dev(), q); render(); }
+  if (b.dataset.del !== undefined && confirmClick(b, "确认删除")) {
+    store.set(historyKey(dev(), q), []);
+    saveQueries(queries().filter((x) => qKey(x) !== qKey(q)));
+    render();
+  }
+});
+$("#queries").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.dataset.replyInput !== undefined) $(`[data-reply="${e.target.dataset.replyInput}"]`).click();
+});
+$("#expiry").addEventListener("change", () => { store.set("ussd.expiry." + dev(), $("#expiry").value); renderHeader(); });
+$("#devices").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-dev]");
+  if (!t || t.dataset.dev === selected) return;
+  selected = t.dataset.dev;
+  store.set("ussd.device", selected);
+  showAll = false;
+  render();
+});
+
+let activityLoading = true; // only the first scan shows a loading state; refreshes keep the last result on screen
+
+async function loadDevices() {
+  devices = await runningDevices();
+  if (!devices.some((d) => d.id === selected)) selected = devices[0]?.id || "";
+}
+
+// Reading SMS threads and task runs is the slow part, so it runs after the page is already on screen.
+async function loadHistory() {
+  await loadActivity();
+  activityLoading = false;
+  await pickupReplies();
+  lastState = "";
+}
+
+Promise.all([hostToolkit(), loadDevices()])
+  .then(([t]) => { toolkit = t; render(); setInterval(watch, 1000); return loadHistory(); })
+  .catch((e) => { $("#sim").textContent = e.message; });
+// Device status (WiFi Calling, registration) changes on its own; refresh it now and then.
+setInterval(() => loadDevices().then(loadHistory).catch(() => {}), 30000);
+</script>
+</body>
+</html>

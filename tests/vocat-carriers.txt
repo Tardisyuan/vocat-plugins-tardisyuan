@@ -1,0 +1,211 @@
+997 named
+001 carrier-lab:00101, carrier-lab:001011, carrier-lab:00102, carrier-lab:00111
+002 carrier-lab:00211, carrier-lab:00281
+003 carrier-lab:00321
+004 carrier-lab:00431
+005 carrier-lab:00541
+006 carrier-lab:00651
+007 carrier-lab:00761
+008 carrier-lab:00871
+009 carrier-lab:00902
+010 carrier-lab:01012
+011 carrier-lab:01122
+012 carrier-lab:01232
+101 carrier-lab:10101
+202 cosmote:20201, nova:20210, vf-gr:20205
+204 kpn-nl:20408, kpn-nl:20469, odido-nl:20416, telfort-nl:20408, telfort-nl:20412, vf-nl:20404
+206 base:20620, bics:20628, non-public-network:20690, non-public-network:20691, orange-b:20610, proximus:20601, roamless:20601, telenet:20605
+208 bouygues-telecom:20820, btbd:20801, btbd:20810, btbd:20826, coriolis:20801, coriolis:20802, coriolis:20810, coriolis:20811, coriolis:20813, coriolis:20827, free:20800, free:20801, free:20802, free:20815, la-poste-mobile:20810, orange-france:20801, orange-france:20802, sfr:20810
+212 monaco-telecom:21210
+213 andorratelecom:21303
+214 esimflag:21405, masmovil:21403, masmovil:21407, movistar:21407, orange-espaa:21403, pepephone:21403, pepephone:21407, vodafone:21401, yoigo:21403, yoigo:21404, yoigo:21407
+216 telekom-hu:21630, vodafone-hu:21670, yettel-hu:21601
+218 bh-mobile:21890, mtel:21805
+219 a1-hr:21910, ht-hr:21901, ht-hr:21920, tm-hr:21902
+220 a1-srb:22005, mts:22003, yettel:22001
+222 gigsky:22201, ho:22210, iliad:22250, kena-mobile:22201, kena-mobile:22207, tim:22201, very:22299, vodafone-it:22210, windtre:22288, windtre:22299
+226 orange-romania:22610, telekom-ro:22603, telekom-ro:22606, vodafone-ro:22601
+228 fastweb:22801, salt:22803, sunrise:22802, sunrise:22860, swisscom:22801, wingo:22801
+230 o2-cz:23002, t-mobile-cz:23001, vf-cz:23003
+231 o2-sk:23106, orange-slovensko:23101, telekom-sk:23102
+232 a1:23201, a1:23202, a1:23211, a1:23212, drei:23205, drei:23210, esim-go:23210, magenta-t:23223
+234 1global:23410, bt-c:23430, bt-op:23430, ctexcel:23430, ctexcel:23433, ee:23430, ee:23433, extend:23453, flexiroam:23450, giffgaff:23410, id:23420, jersey-telecom:23450, manx-telecom:23458, o2:23410, sky:23457, smarty:23420, sure:23455, talkmobile:23415, tesco:23410, three:23420, vodafone-uk:23415, voxi:23415
+238 3-dk:23801, 3-dk:23806, norlys:23820, norlys:23830, norlys:23866, tdc:23801, telenor-dk:23802, telenor-dk:23866, telenor-dk:23877
+240 3-se:24002, carrier-lab:240680, carrier-lab:240681, comviq:24007, goodspeed:24042, non-public-network:24065, non-public-network:24066, sky-ie:24007, tele2:24007, telenor:24004, telenor:24008, telenor:24024, telia:24001, telia:24005
+242 ice-norway:24214, non-public-network:24271, non-public-network:24272, non-public-network:24273, non-public-network:24274, non-public-network:24275, onecall:24202, onecall:24205, telenor:24201, telia-n:24202
+244 alcom:24414, dna:24403, dna:24412, elisa:24405, saunalahti:24421, telia-fi:24491
+246 bite:24602, carrier-lab:24608, carrier-lab:246081, carrier-lab:24681, carrier-lab:246813, tele2-lt:24603, telia-lt:24601
+247 lmt:24701, tele2:24702
+248 elisa:24802, tele2:24803, telia:24801
+250 beeline:25099, megafon:25002, mobile-telesystems:25001, sberbank:25020, tele2:25020, yota:25011
+255 kyivstar:25503, lifecell:25506, vodafone-ua:25501, vodafone-ua:25507
+257 a1-by:25701, life:25704, mts-by:25702
+259 moldcell:25902, orange-moldova:25901
+260 bne:26006, orange:26003, play:26001, play:26003, play:26006, plus:26001, t-mobile-pl:26002, yesim:26001
+262 carrier-lab:26280, carrier-lab:262820, carrier-lab:26284, mobilcom-debitel:26207, non-public-network:26298, o2-de:26203, o2-de:26207, telekom-de:26298, vodafone-de:26202
+266 gibtel:26601
+268 meo:26806, non-public-network:26892, nos:26803, vodafone-p:26801
+270 cellusina:27001, mtxc:27001, mtxc:27002, mtxc:27077, orange-luxembourg:27099, post:27001, tango:27077
+272 3-ireland:27202, 3-ireland:27205, eir:27203, vodafone-ie:27201
+274 nova:27401, nova:27402, nova:27411, siminn:27401, syn:27402
+276 one-al:27601, vodafone-al:27602
+278 epic:27801, go-mobile:27821, melita:27877
+280 cyta:28001, epic:28010, primetel:28020
+282 cellfie:28204, magticom:28202, silknet:28201
+283 team-telecom-armenia:28301, ucom-armenia:28310, viva:28305
+284 a1-bg:28401, vivacom:28403, yettel:28405
+286 kktcell:28601, turk-telekom:28603, turk-telekom:28604, turkcell:28601, vodafone-tr:28602
+290 tusass:29001
+293 a1-si:29340, ipko:29341, mobitel:29341, telemach:29370
+294 a1-mk:29403, one:29402, telekom-mk:29401
+295 airalo:29505, fl1:29505, salt:29502
+297 mtel:29703, one:29701, telekom-me:29702
+299 carrier-lab:29981
+302 bell:302610, bell:302630, bell:302640, bell:302880, chatr:302720, cityfone:302720, eastlink:302270, fido:302370, fizz:302500, freedom-mobile:302490, koodo:302880, lucky-mobile:302610, lum-mobile:302780, mts:302660, mts:302720, pc-mobile:302220, public-mobile:302220, rogers:302720, rogers:302723, sasktel:302780, sasktel:302880, tbaytel:302720, telus:302220, telus:302221, telus:302222, telus:302880, videotron:302500, videotron:302520, virgin-plus:302610, xplore:302130
+308 spm-telecom:30803
+310 alosim:310840, att-dish-mvno-us:310410, att:310030, att:310170, att:310280, att:310410, att:310560, att:310950, boost-mobile:310026, carolina-west-wireless:310130, carrier:310026, carrier:310170, cc:310026, cc:310170, comcast-business:310240, connect:310840, cricket:310150, cricket:310410, cricket:310560, dish-mvno-us:310026, docomo-pacific:310370, docomo-pacific:310470, gta:310140, iconnect:310480, inland-cellular:310580, iphone:310380, ite:310110, iwireless:310770, metro:310026, optimum:310410
+311 appalachian:311480, att:311180, boost:311880, bravado-wireless:311480, c-spire:311230, carrier-lab:311011, cellcom:311480, cellcom:311840, chat-mobility:311480, copper-valley-telecom:311480, cox-mobile:311480, dent:311882, gci:311370, iphone:311270, nwm:311480, ptci:311450, ptci:311530, ptci:311650, spectrum:311480, sprint:311880, thumb-cellular:311480, ting:311480, united:311650, uscellular:311580, uscellular:311589, verizon-response:311480, verizon:311480, virgin:311880, visible:311480, viya:3
+312 appalachian:312130, copper-valley-telecom:312380, firstnet:312670, nemont:312480, ntw:312420, optimum:312530, strata:312290
+313 astca:313120, boost:313340, bravado-wireless:313010, docomo-pacific:313110, extend:313770, firstnet:313100, liberty:313790, optimum:313390
+314 spectrum:314020, xfinity-mobile:314200
+315 non-public-network:315010
+330 claro-puerto-rico:33011, claro-puerto-rico:330110, open-mobile:33012, open-mobile:330120
+334 att:33403, att:33405, att:334050, att:33409, att:334090, att:33490, movistar:33403, oui-movil:334020, telcel:33402, telcel:334020, telcel:33420, unefon:334050, wim:334050
+338 digicel:33805, digicel:338050, flow:338180
+340 chippie:34003, digicel:34020, free:34009, orange-caraibe:34001, sfr:34002
+342 flow:342600
+344 apua-inet:34403, apua-inet:344030, flow:344920
+346 flow:346140
+348 digicel:348770, flow:348170
+350 one:350000, paradise:350007
+352 flow:352110
+354 flow:35486, flow:354860
+356 flow:35611, flow:356110
+358 flow:35811, flow:358110
+360 flow:360110
+362 chippie:36291, digicel:36269
+363 digicel:36302, setar:36301
+364 aliv:36449, btc:364039, btc:36439, btc:364390
+365 flow:365840
+366 flow:366110
+370 altice:37001, claro-dominicana:37002
+372 digicel:37201, natcom:37203
+374 bmobile:374012, bmobile:37412, digicel:37413, digicel:374130
+376 digicel:376360, flow:37635, flow:376350
+400 azercell:40001, bakcell:40002, nar:40004
+401 beeline:40101, izi:40101, kcell:40102
+402 b-mobile:40211, tashicell:40277
+404 airtel:40402, airtel:40403, airtel:40410, airtel:40416, airtel:40431, airtel:40440, airtel:40445, airtel:40449, airtel:40470, airtel:40490, airtel:40492, airtel:40493, airtel:40494, airtel:40495, airtel:40496, airtel:40497, airtel:40498, vi:40401, vi:40404, vi:40405, vi:40407, vi:40411, vi:40412, vi:40413, vi:40414, vi:40415, vi:40419, vi:40420, vi:40422, vi:40424, vi:40427, vi:40430, vi:40443, vi:40444, vi:40446, vi:40456, vi:40460, vi:40478, vi:40482, vi:40484, vi:40486, vi:40487, vi:40488, vi
+405 airtel:40551, airtel:40552, airtel:40553, airtel:40554, airtel:40555, airtel:40556, jio:405840, jio:405854, jio:405855, jio:405856, jio:405857, jio:405858, jio:405859, jio:405860, jio:405861, jio:405862, jio:405863, jio:405864, jio:405865, jio:405866, jio:405867, jio:405868, jio:405869, jio:405870, jio:405871, jio:405872, jio:405873, jio:405874, vi:40566, vi:40567, vi:40570, vi:405750, vi:405751, vi:405752, vi:405753, vi:405754, vi:405755, vi:405756, vi:405799, vi:405845, vi:405846, vi:405848, v
+410 jazz:41001, jazz:41007, telenor-pk:41006, ufone:41003, zong:41004
+412 awcc:41201, etisalat:41250
+413 airtel:41305, dialog:41302, hutch:41308, mobitel:41301
+414 atom:41406, ooredoo:41405
+415 alfa:41501, touch:41503
+416 orange-jordan:41677, umniah:41603, zain-jo:41601
+418 asiacell:41805, korek:41840, zain:41820, zain:41830
+419 ooredoo:41903, stc-kw:41904, zain-kw:41902
+420 mobily:42003, salam-mobile:42009, stc:42001, zain-ksa:42004
+422 omantel:42202, ooredoo:42203, vodafone-om:42206
+424 du:42403, e:42402, virgin:42403
+425 cellcom:42502, golan-t:42502, golan-t:42508, hot-mobile:42501, hot-mobile:42503, hot-mobile:42507, hot-mobile:42528, jawwal:42505, ooredoo:42506, partner:42501, partner:42507, partner:42510, partner:42528, pelephone:42503, prime-mobile:42503
+426 batelco:42601, stc:42604, zain-bh:42602
+427 ooredoo:42701, vodafone-qa:42702
+428 mobicom:42899, unitel:42888
+429 ncell:42902, nepal-telecom:42901
+434 beeline:43404, uztelecom:43408
+436 tcell:43601, tcell:43602, zet-mobile:43605
+437 beeline:43701
+440 bbbackbone:44015, biglobe:44051, carrier:44010, carrier:44020, jcom:44051, kddi:44051, kddi:44054, kddi:44055, povo:44054, rakuten:44011, rakuten:44053, uq-mobile:44051, uq-mobile:44054
+450 kt:45002, kt:45008, lg-u:45006, lg-u:45010, non-public-network:45040, non-public-network:45041, non-public-network:45042, non-public-network:45043, non-public-network:45044, non-public-network:45045, non-public-network:45046, non-public-network:45047, non-public-network:45048, non-public-network:45049, sk-telecom:45005
+452 mobifone:45201, viettel:45204, vinaphone:45202
+454 1o1o-csl:45400, 1o1o-csl:45402, 1o1o-csl:45410, 1o1o-csl:45418, airsime:45400, cmhk:45412, cmhk:45413, csl:45416, csl:45419, csl:45420, ctexcel:45400, ctexcel:45402, ctexcel:45410, ctexcel:45418, ctexcel:45431, cuniq:45400, cuniq:45402, cuniq:45403, cuniq:45404, cuniq:45407, cuniq:45410, cuniq:45414, cuniq:45416, cuniq:45418, cuniq:45419, cuniq:45420, hkbn:45403, hkbn:45406, hkbn:45412, hutchison-hk:45403, hutchison-hk:45404, multibyte:45424, smc-hk:45406, smc-hk:45415, smc-hk:45417, sunmobile:4
+455 3-macau:45503, 3-macau:45505, carrier:45507, ctexcel:45507, ctm:45501, ctm:45504, smartone:45500, smartone:45506
+456 cellcard:45601, metfone:45608, seatel:45611, smart:45602, smart:45605, smart:45606
+457 laotel:45701, unitel:45703
+460 carrier:46000, carrier:46001, carrier:46002, carrier:46007, carrier:46008, carrier:46009, carrier:46011, carrier:46015, ctexcel:46011
+466 carrier:46601, carrier:46689, carrier:466891, carrier:46690, carrier:46692, carrier:46697, gt:46605, gt:46697
+470 airtel:47002, airtel:47007, banglalink:47003, grameenphone:47001, robi:47002
+472 dhiraagu:47201, ooredoo:47202
+502 celcomdigi:50216, celcomdigi:50219, maxis:50212, u-mobile:50218, yes:502152, yoodo:50219
+505 lebara:50503, optus:50502, telstra:50501, telstra:50511, telstra:50571, telstra:50572, voda-au:50503
+510 indosat:51001, indosat:51021, indosat:51089, smartfren:51009, smartfren:51028, telkomsel:51010, xl-axiata:51011
+514 tt:51402
+515 dito:515066, dito:51566, globe:51502, smart:51503
+520 ais:52001, ais:52003, dtac:52005, dtac:52018, dtac:52047, true-h:52000
+525 eskimo:52501, giga:52505, m1-singapore:52503, nomad:52501, singtel:52501, starhub:52505
+528 dstcom:52803, dstcom:52811, imagine:52801, progresif:52802
+530 2degrees:53001, 2degrees:53024, one-nz:53001, one-nz:53013, skinny:53005, spark-nz:53002, spark-nz:53005
+537 bmobile:53701, digicel:53703
+539 digicel:53988, tcc:53901
+540 bmobile:54002
+541 digicel:54105, smile:54101
+542 vodafone:54201
+543 manuia:54301
+544 bluesky:54411, bluesky:544110
+545 vodafone-kiribati:54501
+546 opt:54601
+547 vini:54720
+548 telecom-cook:54801
+549 bluesky:54927, digicel:54900
+550 fsmtc:55001
+552 palaucel:55201
+602 e-egypt:60203, orange:60201, vodafone:60202, we:60203, we:60204
+603 djezzy:60302, mobilis:60301, ooredoo:60303
+604 iam:60401, inwi:60402, orange:60400
+605 ooredoo-tn:60503, orange-tunisia:60501, tuntel:60502
+606 al-madar:60601
+608 free:60802, orange-senegal:60801
+610 orange-mali:61002
+611 orange-guinea:61101
+612 moov:61202, mtn-ci:61205, orange-ivory-coast:61203
+613 orange-bf:61302
+614 airtel:61402, orange-niger:61404
+616 etisalat:61602, glo:61605, mtn:61603
+617 emtel:61710, my-t:61701
+618 orange-lbr:61807
+619 orange-sl:61901
+620 airtel:62006, glo:62007, mtn:62001, tigo:62003
+621 9mobile:62160, airtel:62120, glo:62150, mtn:62130
+622 airtel:62201, tigo:62203
+623 orange-central-africa:62303
+624 mtn:62401, orange-cameroon:62402
+628 airtel:62803, moov:62802
+629 airtel:62901, mtn:62910
+630 airtel:63002, orange:63086, tigo:63089, vodacom:63001
+631 movicel:63104, unitel:63102
+632 orange:63203
+633 airtel:63310, cw-seychelles:63301
+635 airtel:63514, mtn:63510, tigo:63513
+639 airtel:63903, safaricom:63902, telkom:63907
+640 airtel:64005, tigo:64002, vodacom:64004, zantel:64003
+641 airtel:64101, mtn:64110
+643 mcel:64301, vodacom:64304
+645 airtel:64501, mtn-zm:64502
+646 airtel:64601, orange-madagascar:64602, telma:64604
+647 only:64702, orange-reunion:64700, sfr:64710, zeop:64704
+648 econet:64804
+649 mtc:64901, tnmobile:64903
+650 airtel:65010
+651 vodacom:65101
+652 btc:65204, mascom:65201, orange-botswana:65202
+655 cell-c:65507, mtn:65510, telkomsa:65502, vodacom:65501
+702 digicell:70267, smart:70269
+704 claro-guatemala:70401, movistar:70403, tigo:70402
+706 claro-sv:70601, digicel:70602, movistar:70604, tigo:70603
+708 claro-honduras:70800, claro-honduras:708001, claro-honduras:70801, tigo-hnd:70802
+710 claro-nicaragua:71021, tigo:71030, tigo:710300
+712 claro-costa-rica:71203, claro-costa-rica:712030, claro-costa-rica:71230, claro-costa-rica:712300, kolbi-ice:71201, kolbi-ice:71202, liberty:71204
+714 claro-pa:71403, digicel:71404, movil:71401, tigo:71402, tigo:71420
+716 claro-peru:71610, entel:71617, movistar:71606
+722 claro-argentina:722310, movistar:72207, movistar:722070, personal:72207, personal:72234, personal:722341, tuenti:722010
+724 algar:72432, algar:72433, algar:72434, claro-brasil:72405, oi:72416, oi:72431, tim:72402, tim:72403, tim:72404, vivo:72406, vivo:72410, vivo:72411, vivo:72423
+730 claro:73001, claro:73002, claro:73003, claro:73009, claro:73010, claro:73023, entel:73001, entel:73002, entel:73003, entel:73009, entel:73010, movistar:73001, movistar:73002, movistar:73003, movistar:73009, vtr:73002, vtr:73003, vtr:73008, wom:73001, wom:73002, wom:73003, wom:73009, wom:730090, wom:73010
+732 avantel:732101, avantel:732103, avantel:732123, avantel:732130, claro:732101, movistar:732123, tigo:732103, wom:732101, wom:732103, wom:732123, wom:732130, wom:732360
+736 tigo:73603
+738 digicel:73801, enet:738040, one:738002
+740 claro:74001, movistar:74000
+744 claro-paraguay:74402, tigo:74404
+746 digicel:74603, telesur:74602
+748 antel:74801, claro-uruguay:74810, tigo:74807
+901 mtxc:90139, transatel:90137, usims:90137

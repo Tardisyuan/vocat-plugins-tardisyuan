@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>诊断</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+  .dev { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+  .dev .top, .g .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .nums { display: flex; gap: 16px; }
+  .nums b { display: block; font: 600 20px ui-monospace, Menlo, monospace; }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  svg.bars { height: 60px; }
+  .g { display: flex; flex-direction: column; gap: 4px; }
+  .count { font: 600 18px ui-monospace, Menlo, monospace; }
+  .explain { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  details summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="row">
+  <select id="range">
+    <option value="24">最近 24 小时</option>
+    <option value="168" selected>最近 7 天</option>
+  </select>
+  <button class="ghost" id="reload">刷新</button>
+  <span class="muted" id="coverage"></span>
+  <span class="bad" id="status"></span>
+</div>
+
+<h2>WiFi Calling</h2>
+<div class="grid" id="devs"></div>
+<p class="muted">「自动重连」表示掉线后 VoCat 安排了重连，「失败」是 VoWiFi 操作报错。</p>
+
+<h2>警告和错误</h2>
+<div class="row">
+  <select id="level">
+    <option value="warn" selected>警告和错误</option>
+    <option value="error">只看错误</option>
+  </select>
+  <input id="q" placeholder="搜索，如 487 或设备名">
+</div>
+<div id="groups"></div>
+<p class="muted">相同的报错合并成一组。解读是按常见情况写的经验说明，未经验证；具体原因以原文为准。数据都来自 VoCat 日志，VoCat 每次最多返回 2000 行，更早的看不到。</p>
+
+<script src="core.js"></script>
+<script src="common.js"></script>
+<script>
+const SIP = {
+  400: "请求格式不被接受。", 401: "需要鉴权，SIM 鉴权没通过。", 403: "运营商拒绝了这项服务：常见于运营商不允许在当前网络或国家使用这个功能。",
+  404: "号码或服务不存在。", 408: "运营商在规定时间内没有回应。", 480: "对方或服务暂时不可用。", 486: "对方忙。",
+  487: "请求被网络终止：运营商收到后直接取消了，通常说明它不支持通过 WiFi Calling 做这件事（例如 USSD）。",
+  488: "通话或会话参数不被接受。", 500: "运营商服务器内部错误，稍后再试。", 503: "运营商服务暂时不可用，稍后再试。", 504: "运营商上游超时。",
+};
+const CME = {
+  3: "操作不被允许。", 4: "模块不支持这个操作。", 10: "没有插 SIM 卡。", 11: "SIM 卡需要 PIN。", 13: "SIM 卡故障。", 14: "SIM 卡忙，稍后再试。",
+  30: "没有网络服务（没注册上网络）。", 50: "参数错误。", 100: "未知错误。",
+};
+const CMS = { 301: "短信服务被保留或禁用。", 310: "没有插 SIM 卡。", 330: "短信中心号码未知。", 331: "没有网络服务。", 500: "未知错误。" };
+
+// First rule that matches wins. Each returns a short Chinese explanation.
+const RULES = [
+  [/SIP (\d{3})/i, (m) => `SIP ${m[1]}：${SIP[m[1]] || "运营商返回了这个 SIP 状态码。"}`],
+  [/CME ERROR:?\s*(\d+)/i, (m) => `模块错误 ${m[1]}：${CME[m[1]] || "模块返回的错误码，查对应模块的 AT 手册。"}`],
+  [/CMS ERROR:?\s*(\d+)/i, (m) => `短信错误 ${m[1]}：${CMS[m[1]] || "短信相关的错误码。"}`],
+  [/no usable AT port/i, () => "这台设备没有 AT 口（USB 读卡器或纯 QMI 模式）。需要 AT 指令的功能在它上面用不了，VoCat 内部尝试访问时也会记这条。"],
+  [/automatic retry scheduled/i, () => "WiFi Calling 掉线了，VoCat 安排了自动重连。偶尔出现正常，频繁出现说明网络或运营商侧不稳定。"],
+  [/IKE|AUTHENTICATION_FAILED|IKE_AUTH/i, () => "连接运营商 ePDG 时鉴权失败：可能是 SIM 鉴权没过，或运营商不允许在这个国家/网络使用 WiFi Calling。"],
+  [/epdg.*(lookup|resolve|no such host)|lookup .*epdg/i, () => "找不到运营商 ePDG 的地址（DNS 解析失败），检查网络或 DNS。"],
+  [/IMS registration|USSINotReady|not ready/i, () => "IMS（WiFi Calling）还没注册上，等注册完成再试。"],
+  [/timed? ?out|deadline exceeded|timeout/i, () => "等待超时：对方（模块、运营商或网络）没有在规定时间内回应。"],
+  [/connection refused|network is unreachable|no route to host|broken pipe|EOF/i, () => "网络连接中断或被拒绝。"],
+  [/invalid_csrf|unauthori[sz]ed/i, () => "登录状态过期，刷新 VoCat 页面重新登录。"],
+];
+const explain = (text) => { for (const [re, fn] of RULES) { const m = text.match(re); if (m) return fn(m); } return ""; };
+
+let devices = [], vowifi = [], warnings = [];
+const deviceOf = (e) => e.fields.deviceId || e.fields.deviceID || e.fields.device_id || "";
+const devName = (id) => devices.find((d) => d.id === id)?.name || id;
+const detail = (e) => String(e.fields.rawError || e.fields.error || e.fields.reason || "");
+const since = () => Date.now() - Number($("#range").value) * 3600e3;
+
+// Map a VoWiFi log line to the kind of event it records; null for routine lines.
+function kind(e) {
+  if (/automatic retry scheduled/i.test(e.message)) return "retry";
+  if (/VoWiFi operation failed/i.test(e.message)) return "fail";
+  return null;
+}
+
+function bars(list, t0, t1) {
+  // ponytail: fixed 24 buckets over the window; finer buckets if anyone needs hour-level detail over 7 days.
+  const n = 24, w = 800 / n, step = (t1 - t0) / n;
+  const counts = Array.from({ length: n }, () => ({ retry: 0, fail: 0 }));
+  for (const e of list) {
+    const i = Math.min(n - 1, Math.floor((e.t - t0) / step));
+    if (i >= 0) counts[i][e.k]++;
+  }
+  const max = Math.max(1, ...counts.map((c) => c.retry + c.fail));
+  return `<svg class="bars" viewBox="0 0 800 60" preserveAspectRatio="none">${counts.map((c, i) => {
+    const hr = c.retry / max * 56, hf = c.fail / max * 56;
+    return `<rect x="${i * w + 1}" y="${60 - hr - hf}" width="${w - 2}" height="${hr}" style="fill:var(--accent)"/>` +
+      `<rect x="${i * w + 1}" y="${60 - hf}" width="${w - 2}" height="${hf}" style="fill:var(--bad)"/>`;
+  }).join("")}</svg>`;
+}
+
+function renderDevices() {
+  const t1 = Date.now(), t0 = since();
+  const inRange = vowifi.filter((e) => e.t >= t0);
+  const ids = new Set([...devices.filter((d) => d.vowifiEnabled).map((d) => d.id), ...inRange.map((e) => e.id).filter(Boolean)]);
+  $("#devs").innerHTML = [...ids].map((id) => {
+    const d = devices.find((x) => x.id === id);
+    const v = d?.vowifiRuntime || {};
+    const mine = inRange.filter((e) => e.id === id);
+    const count = (k) => mine.filter((e) => e.k === k).length;
+    const last = mine.at(-1);
+    const reasons = {};
+    for (const e of mine.filter((x) => x.k === "fail")) { const r = detail(e) || "未知原因"; reasons[r] = (reasons[r] || 0) + 1; }
+    const state = !d ? ["设备不在列表里", "muted"] : !d.vowifiEnabled ? ["WiFi Calling 已关闭", "muted"]
+      : v.imsReady ? ["当前在线", "ok"] : [`当前离线（${v.phase || "未知"}）`, "bad"];
+    return `<div class="card dev">
+      <div class="top"><strong>${esc(d?.name || id)}</strong><span class="pill ${state[1]}">${esc(state[0])}</span></div>
+      <div class="nums">
+        <span><b class="${count("retry") ? "bad" : "ok"}">${count("retry")}</b><span class="muted">自动重连</span></span>
+        <span><b class="${count("fail") ? "bad" : "ok"}">${count("fail")}</b><span class="muted">失败</span></span>
+        <span><b>${last ? esc(ago(last.t)) : "—"}</b><span class="muted">最近一次掉线</span></span>
+      </div>
+      ${bars(mine, t0, t1)}
+      <div class="row muted" style="margin:0;justify-content:space-between"><span>${esc(fmtTime(t0))}</span><span><span style="color:var(--accent)">■</span> 重连 <span class="bad">■</span> 失败</span><span>现在</span></div>
+      ${Object.keys(reasons).length ? `<details><summary class="muted">失败原因</summary><table>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
+        .map(([r, n]) => `<tr><td class="mono">${esc(r)}</td><td>${n} 次</td></tr>`).join("")}</table></details>` : ""}
+      ${v.lastError ? `<div class="muted">VoCat 记录的最近错误：<span class="mono">${esc(v.lastErrorClass ? v.lastErrorClass + " · " : "")}${esc(v.lastError)}</span></div>` : ""}
+    </div>`;
+  }).join("") || `<p class="muted">没有开着 WiFi Calling 的设备，所选时间内也没有相关日志。</p>`;
+}
+
+function renderGroups() {
+  const t0 = since();
+  const q = $("#q").value.trim().toLowerCase();
+  const groups = new Map();
+  for (const e of warnings) {
+    if (e.t < t0) continue;
+    const key = e.message + " | " + detail(e);
+    if (q && !(key + " " + devName(deviceOf(e)) + " " + JSON.stringify(e.fields)).toLowerCase().includes(q)) continue;
+    const g = groups.get(key) || { message: e.message, detail: detail(e), level: e.level, items: [], devs: new Set() };
+    g.items.push(e);
+    if (deviceOf(e)) g.devs.add(devName(deviceOf(e)));
+    groups.set(key, g);
+  }
+  $("#groups").innerHTML = [...groups.values()].sort((a, b) => b.items.at(-1).t - a.items.at(-1).t).map((g) => {
+    const ex = explain(g.detail + " " + g.message);
+    const last = g.items.at(-1);
+    return `<div class="card g">
+      <div class="top"><strong class="${g.level === "error" ? "bad" : ""}">${esc(g.message)}</strong><span class="count">${g.items.length} 次</span></div>
+      ${g.detail ? `<div class="mono">${esc(g.detail)}</div>` : ""}
+      ${ex ? `<div class="explain">${esc(ex)}</div>` : `<div class="muted">暂无解读</div>`}
+      <div class="muted">最近 ${esc(ago(last.t))}（${esc(fmtTime(last.t))}）· 最早 ${esc(fmtTime(g.items[0].t))}${g.devs.size ? " · " + esc([...g.devs].join("、")) : ""}</div>
+      <details><summary class="muted">最近一条原文</summary><div class="mono muted">${esc(JSON.stringify(last.fields, null, 2))}</div></details>
+    </div>`;
+  }).join("") || `<p class="muted">所选范围内没有${$("#level").value === "error" ? "错误" : "警告或错误"}。</p>`;
+}
+
+const render = () => { renderDevices(); renderGroups(); };
+
+async function load() {
+  $("#status").textContent = "";
+  try {
+    const [res, v, w] = await Promise.all([
+      api("/devices").catch(() => ({})), loadLogs({ search: "vowifi" }), loadLogs({ level: $("#level").value }),
+    ]);
+    devices = res.devices || [];
+    vowifi = v.map((e) => ({ ...e, k: kind(e), id: deviceOf(e) })).filter((e) => e.k);
+    warnings = w;
+    const first = Math.min(v[0]?.t ?? Infinity, w[0]?.t ?? Infinity);
+    $("#coverage").textContent = first < Infinity ? `日志覆盖 ${fmtTime(first)} 起` : "";
+    render();
+  } catch (e) {
+    $("#status").textContent = e.message;
+  }
+}
+
+$("#range").addEventListener("change", render);
+$("#q").addEventListener("input", renderGroups);
+$("#level").addEventListener("change", load);
+$("#reload").addEventListener("click", load);
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

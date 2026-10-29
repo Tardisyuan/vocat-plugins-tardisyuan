@@ -1,0 +1,25 @@
+:root {
+  --bg: #ffffff; --fg: #111827; --muted: #6b7280; --line: #e5e7eb;
+  --card: #f9fafb; --accent: #4f46e5; --ok: #059669; --bad: #dc2626;
+}
+:root.dark {
+  --bg: #15151a; --fg: #e5e7eb; --muted: #9ca3af; --line: rgba(255,255,255,.1);
+  --card: #1c1c22; --accent: #818cf8; --ok: #34d399; --bad: #f87171;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.5 system-ui, -apple-system, "PingFang SC", sans-serif; }
+h2 { font-size: 15px; margin: 20px 0 8px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+input, select, textarea, button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; }
+button { cursor: pointer; background: var(--accent); color: #fff; border: 0; }
+button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+button:disabled { opacity: .5; cursor: default; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.muted { color: var(--muted); font-size: 12px; }
+.mono { font-family: ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; }
+.code { font: 600 22px ui-monospace, Menlo, monospace; letter-spacing: 2px; cursor: pointer; color: var(--accent); }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 13px; }
+svg { width: 100%; height: auto; display: block; font-size: 11px; }
