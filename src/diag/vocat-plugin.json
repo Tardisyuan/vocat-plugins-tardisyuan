@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "vocat-diag",
   "name": "VoCat Diagnostics",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "WiFi Calling drops and retries per device, plus VoCat warnings grouped and explained in Chinese.",
   "author": "tardis",
   "contributions": [
