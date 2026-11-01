@@ -32,6 +32,10 @@
 </div>
 
 <h2>WiFi Calling</h2>
+<div class="row">
+  <label class="muted"><input type="checkbox" id="capture"> 页面开着时每 3 秒检查一次，抓取掉线原因</label>
+  <span class="muted" id="captureStatus"></span>
+</div>
 <div class="grid" id="devs"></div>
 <p class="muted">「自动重连」表示掉线后 VoCat 安排了重连，「失败」是 VoWiFi 操作报错。</p>
 
@@ -69,7 +73,10 @@ const RULES = [
   [/CMS ERROR:?\s*(\d+)/i, (m) => `短信错误 ${m[1]}：${CMS[m[1]] || "短信相关的错误码。"}`],
   [/no usable AT port/i, () => "这台设备没有 AT 口（USB 读卡器或纯 QMI 模式）。需要 AT 指令的功能在它上面用不了，VoCat 内部尝试访问时也会记这条。"],
   [/automatic retry scheduled/i, () => "WiFi Calling 掉线了，VoCat 安排了自动重连。偶尔出现正常，频繁出现说明网络或运营商侧不稳定。"],
-  [/IKE|AUTHENTICATION_FAILED|IKE_AUTH/i, () => "连接运营商 ePDG 时鉴权失败：可能是 SIM 鉴权没过，或运营商不允许在这个国家/网络使用 WiFi Calling。"],
+  [/DPD|dead peer|peer did not (answer|respond)|liveness/i, () => "隧道保活检测失败：一段时间收不到运营商 ePDG 的回应，隧道被判定为断开。常见原因是网络或代理的 UDP 通道中断、NAT 映射过期。"],
+  [/rekey|CREATE_CHILD_SA/i, () => "隧道到期换密钥失败：IPsec 隧道定期换密钥时没有成功，隧道被重建。"],
+  [/re-?regist|registration (expired|refresh)/i, () => "IMS 定期重新注册失败：注册到期续期时没成功，需要重新注册。"],
+  [/AUTHENTICATION_FAILED|IKE_AUTH.*(fail|reject)/i, () => "连接运营商 ePDG 时鉴权失败：可能是 SIM 鉴权没过，或运营商不允许在这个国家/网络使用 WiFi Calling。"],
   [/epdg.*(lookup|resolve|no such host)|lookup .*epdg/i, () => "找不到运营商 ePDG 的地址（DNS 解析失败），检查网络或 DNS。"],
   [/IMS registration|USSINotReady|not ready/i, () => "IMS（WiFi Calling）还没注册上，等注册完成再试。"],
   [/timed? ?out|deadline exceeded|timeout/i, () => "等待超时：对方（模块、运营商或网络）没有在规定时间内回应。"],
@@ -86,6 +93,62 @@ const explain = (text) => { for (const [re, fn] of RULES) { const m = text.match
 
 let devices = [], vowifi = [], warnings = [];
 let context = []; // every VoWiFi or warning line, to show what happened right before a reconnect
+
+// --- Drop-cause capture ---
+// When WiFi Calling drops mid-session, VoCat keeps the cause only in the device state and clears it once
+// the reconnect succeeds a few seconds later; it never logs it. Sampling the state often while this page
+// is open catches most of them.
+const CAUSES_KEY = "diag.causes";
+const DROP_KIND = { tunnel_runtime: "隧道（IPsec/IKE）中途断开", ims_runtime: "IMS 注册中途失效" };
+const lastSeen = {}; // device id -> cause already recorded, so one drop is stored once
+let captureTimer = null;
+
+const causes = () => store.get(CAUSES_KEY, []);
+// Captured causes as log-like lines, so "重连前发生了什么" can use them too.
+const causeLines = () => causes().map((c) => ({ t: c.t, level: "warn", message: `掉线原因（插件抓取）${DROP_KIND[c.cls] ? "：" + DROP_KIND[c.cls] : ""}`, fields: { deviceId: c.id, error: c.error } }));
+
+async function sampleCauses() {
+  const res = await api("/devices").catch(() => null);
+  if (!res) return;
+  const list = causes();
+  let added = 0;
+  for (const d of res.devices || []) {
+    const v = d.vowifiRuntime || {};
+    if (!v.lastError) { lastSeen[d.id] = ""; continue; } // cleared: the next cause is a new drop
+    const sig = `${v.lastErrorClass}|${v.lastError}|${v.lastReason}`;
+    if (lastSeen[d.id] === sig) continue;
+    lastSeen[d.id] = sig;
+    list.push({ t: Date.now(), id: d.id, cls: v.lastErrorClass || "", error: v.lastError, reason: v.lastReason || "" });
+    added++;
+  }
+  if (added) { store.set(CAUSES_KEY, list.slice(-500)); renderDevices(); }
+  $("#captureStatus").textContent = `已抓到 ${causes().length} 条`;
+}
+
+function setCapture(on) {
+  store.set("diag.capture", on);
+  clearInterval(captureTimer);
+  captureTimer = on ? setInterval(sampleCauses, 3000) : null;
+  if (on) sampleCauses();
+  else $("#captureStatus").textContent = "";
+}
+
+function causeDetails(id, t0) {
+  const mine = causes().filter((c) => c.id === id && c.t >= t0);
+  if (!mine.length) return store.get("diag.capture", true)
+    ? `<div class="muted">还没抓到掉线原因：页面要开着才会抓。</div>` : "";
+  const groups = new Map();
+  for (const c of mine) {
+    const key = `${c.cls}|${c.error}`;
+    const g = groups.get(key) || { ...c, n: 0 };
+    g.n++; g.t = c.t;
+    groups.set(key, g);
+  }
+  return `<details open><summary class="muted">抓到的掉线原因（${mine.length} 次）</summary><table>${[...groups.values()].sort((a, b) => b.n - a.n).map((g) => {
+    const ex = explain(g.error);
+    return `<tr><td><div>${esc(DROP_KIND[g.cls] || g.cls || "未分类")}</div><div class="mono">${esc(g.error)}</div>${ex ? `<div class="explain">${esc(ex)}</div>` : ""}</td><td>${g.n} 次<br><span class="muted">最近 ${esc(ago(g.t))}</span></td></tr>`;
+  }).join("")}</table></details>`;
+}
 const deviceOf = (e) => e.fields.deviceId || e.fields.deviceID || e.fields.device_id || "";
 const devName = (id) => devices.find((d) => d.id === id)?.name || id;
 const detail = (e) => String(e.fields.rawError || e.fields.error || e.fields.reason || "");
@@ -118,7 +181,7 @@ function bars(list, t0, t1) {
 // VoCat logs no reason on the reconnect line itself, so this is where the cause shows up, if it was logged.
 const NOISE = /automatic retry scheduled|lifecycle (operation|worker)|desired state updated/i;
 function around(e) {
-  return context.filter((x) => x.t <= e.t + 5e3 && x.t >= e.t - 3 * 60e3 && !NOISE.test(x.message)
+  return [...context, ...causeLines()].filter((x) => x.t <= e.t + 5e3 && x.t >= e.t - 3 * 60e3 && !NOISE.test(x.message)
     && (!deviceOf(x) || deviceOf(x) === e.id));
 }
 const lineText = (x) => x.message + (detail(x) ? "：" + detail(x) : "");
@@ -166,6 +229,7 @@ function renderDevices() {
       <div class="row muted" style="margin:0;justify-content:space-between"><span>${esc(fmtTime(t0))}</span><span><span style="color:var(--accent)">■</span> 重连 <span class="bad">■</span> 失败</span><span>现在</span></div>
       ${Object.keys(reasons).length ? `<details><summary class="muted">失败原因</summary><table>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
         .map(([r, n]) => `<tr><td class="mono">${esc(r)}</td><td>${n} 次</td></tr>`).join("")}</table></details>` : ""}
+      ${causeDetails(id, t0)}
       ${retryDetails(mine.filter((e) => e.k === "retry"))}
       ${v.lastError ? `<div class="muted">VoCat 记录的最近错误：<span class="mono">${esc(v.lastErrorClass ? v.lastErrorClass + " · " : "")}${esc(v.lastError)}</span></div>` : ""}
     </div>`;
@@ -233,8 +297,11 @@ $("#range").addEventListener("change", render);
 $("#q").addEventListener("input", renderGroups);
 $("#level").addEventListener("change", load);
 $("#reload").addEventListener("click", load);
+$("#capture").checked = store.get("diag.capture", true);
+$("#capture").addEventListener("change", (e) => setCapture(e.target.checked));
 load();
 setInterval(load, 60000);
+setCapture($("#capture").checked);
 </script>
 </body>
 </html>
