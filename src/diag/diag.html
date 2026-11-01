@@ -13,6 +13,7 @@
   .nums b { display: block; font: 600 20px ui-monospace, Menlo, monospace; }
   .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
   svg.bars { height: 60px; }
+  .dev td:last-child { white-space: nowrap; }
   .g { display: flex; flex-direction: column; gap: 4px; }
   .count { font: 600 18px ui-monospace, Menlo, monospace; }
   .explain { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
@@ -43,6 +44,7 @@
   <input id="q" placeholder="搜索，如 487 或设备名">
 </div>
 <div id="groups"></div>
+<div id="ignored"></div>
 <p class="muted">相同的报错合并成一组。解读是按常见情况写的经验说明，未经验证；具体原因以原文为准。数据都来自 VoCat 日志，VoCat 每次最多返回 2000 行，更早的看不到。</p>
 
 <script src="core.js"></script>
@@ -74,9 +76,16 @@ const RULES = [
   [/connection refused|network is unreachable|no route to host|broken pipe|EOF/i, () => "网络连接中断或被拒绝。"],
   [/invalid_csrf|unauthori[sz]ed/i, () => "登录状态过期，刷新 VoCat 页面重新登录。"],
 ];
+// Warnings that are expected and harmless; shown folded away so real errors stand out.
+const IGNORABLE = [
+  { re: /no usable AT port/i, why: "读卡器没有 AT 口，VoCat 内部例行尝试访问时会记这条，不影响短信、WiFi Calling 和查询。" },
+];
+const ignorable = (text) => IGNORABLE.find((x) => x.re.test(text));
+
 const explain = (text) => { for (const [re, fn] of RULES) { const m = text.match(re); if (m) return fn(m); } return ""; };
 
 let devices = [], vowifi = [], warnings = [];
+let context = []; // every VoWiFi or warning line, to show what happened right before a reconnect
 const deviceOf = (e) => e.fields.deviceId || e.fields.deviceID || e.fields.device_id || "";
 const devName = (id) => devices.find((d) => d.id === id)?.name || id;
 const detail = (e) => String(e.fields.rawError || e.fields.error || e.fields.reason || "");
@@ -105,6 +114,33 @@ function bars(list, t0, t1) {
   }).join("")}</svg>`;
 }
 
+// Log lines in the 3 minutes before a reconnect, from the same device or not tied to any device.
+// VoCat logs no reason on the reconnect line itself, so this is where the cause shows up, if it was logged.
+const NOISE = /automatic retry scheduled|lifecycle (operation|worker)|desired state updated/i;
+function around(e) {
+  return context.filter((x) => x.t <= e.t + 5e3 && x.t >= e.t - 3 * 60e3 && !NOISE.test(x.message)
+    && (!deviceOf(x) || deviceOf(x) === e.id));
+}
+const lineText = (x) => x.message + (detail(x) ? "：" + detail(x) : "");
+
+function retryCauses(retries) {
+  const counts = new Map();
+  for (const r of retries) for (const text of new Set(around(r).map(lineText))) counts.set(text, (counts.get(text) || 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+}
+
+function retryDetails(retries) {
+  if (!retries.length) return "";
+  const causes = retryCauses(retries);
+  const silent = retries.filter((r) => !around(r).length).length;
+  return `<details><summary class="muted">重连前发生了什么（看前 3 分钟的日志）</summary>
+    ${causes.length ? `<table>${causes.map(([text, n]) => `<tr><td class="mono">${esc(text)}</td><td>${n} 次重连前出现</td></tr>`).join("")}</table>` : ""}
+    <p class="muted">${silent ? `${silent} 次重连前 3 分钟内没有任何相关日志：VoCat 没记下原因。` : ""}原因要结合下面的明细看；日志只到 VoCat 记下的程度。</p>
+    ${retries.slice(-10).reverse().map((r) => `<div class="muted" style="margin-top:6px">${esc(fmtTime(r.t))} 重连</div>
+      ${around(r).map((x) => `<div class="mono" style="font-size:12px">${esc(new Date(x.t).toLocaleTimeString())} ${esc(lineText(x))}</div>`).join("") || `<div class="muted" style="font-size:12px">前 3 分钟没有相关日志</div>`}`).join("")}
+  </details>`;
+}
+
 function renderDevices() {
   const t1 = Date.now(), t0 = since();
   const inRange = vowifi.filter((e) => e.t >= t0);
@@ -130,6 +166,7 @@ function renderDevices() {
       <div class="row muted" style="margin:0;justify-content:space-between"><span>${esc(fmtTime(t0))}</span><span><span style="color:var(--accent)">■</span> 重连 <span class="bad">■</span> 失败</span><span>现在</span></div>
       ${Object.keys(reasons).length ? `<details><summary class="muted">失败原因</summary><table>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
         .map(([r, n]) => `<tr><td class="mono">${esc(r)}</td><td>${n} 次</td></tr>`).join("")}</table></details>` : ""}
+      ${retryDetails(mine.filter((e) => e.k === "retry"))}
       ${v.lastError ? `<div class="muted">VoCat 记录的最近错误：<span class="mono">${esc(v.lastErrorClass ? v.lastErrorClass + " · " : "")}${esc(v.lastError)}</span></div>` : ""}
     </div>`;
   }).join("") || `<p class="muted">没有开着 WiFi Calling 的设备，所选时间内也没有相关日志。</p>`;
@@ -148,7 +185,8 @@ function renderGroups() {
     if (deviceOf(e)) g.devs.add(devName(deviceOf(e)));
     groups.set(key, g);
   }
-  $("#groups").innerHTML = [...groups.values()].sort((a, b) => b.items.at(-1).t - a.items.at(-1).t).map((g) => {
+  const all = [...groups.values()].sort((a, b) => b.items.at(-1).t - a.items.at(-1).t);
+  const card = (g) => {
     const ex = explain(g.detail + " " + g.message);
     const last = g.items.at(-1);
     return `<div class="card g">
@@ -158,7 +196,13 @@ function renderGroups() {
       <div class="muted">最近 ${esc(ago(last.t))}（${esc(fmtTime(last.t))}）· 最早 ${esc(fmtTime(g.items[0].t))}${g.devs.size ? " · " + esc([...g.devs].join("、")) : ""}</div>
       <details><summary class="muted">最近一条原文</summary><div class="mono muted">${esc(JSON.stringify(last.fields, null, 2))}</div></details>
     </div>`;
-  }).join("") || `<p class="muted">所选范围内没有${$("#level").value === "error" ? "错误" : "警告或错误"}。</p>`;
+  };
+  const isIgnored = (g) => ignorable(g.detail + " " + g.message);
+  const main = all.filter((g) => !isIgnored(g)), quiet = all.filter(isIgnored);
+  $("#groups").innerHTML = main.map(card).join("")
+    || `<p class="muted">所选范围内没有${quiet.length ? "需要关注的" : ""}${$("#level").value === "error" ? "错误" : "警告或错误"}。</p>`;
+  $("#ignored").innerHTML = quiet.length ? `<details class="card"><summary class="muted">可以忽略的警告（${quiet.length} 类，共 ${quiet.reduce((n, g) => n + g.items.length, 0)} 次）</summary>
+    ${quiet.map((g) => `<p class="muted">${esc(isIgnored(g).why)}</p>${card(g)}`).join("")}</details>` : "";
 }
 
 const render = () => { renderDevices(); renderGroups(); };
@@ -172,6 +216,11 @@ async function load() {
     devices = res.devices || [];
     vowifi = v.map((e) => ({ ...e, k: kind(e), id: deviceOf(e) })).filter((e) => e.k);
     warnings = w;
+    const seen = new Set();
+    context = [...v, ...w].filter((e) => {
+      const key = e.t + e.message + JSON.stringify(e.fields);
+      return seen.has(key) ? false : seen.add(key);
+    }).sort((a, b) => a.t - b.t);
     const first = Math.min(v[0]?.t ?? Infinity, w[0]?.t ?? Infinity);
     $("#coverage").textContent = first < Infinity ? `日志覆盖 ${fmtTime(first)} 起` : "";
     render();
