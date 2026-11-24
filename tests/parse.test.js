@@ -36,3 +36,11 @@ assert.strictEqual(gg2.money, 9.31);
 assert.strictEqual(gg2.moneyText, "9.31 GBP");
 assert.strictEqual(parseReply("AUD 12.50 remaining").moneyText, "12.50 AUD");
 console.log("currency code ok");
+
+// Telstra: "Unltd text expires 21/12/2026" must not read 21 as a text count.
+const telstra = parseReply("Your service 0400000000 is on Pre-Paid Mobile. Your remaining data and text balances are: 45GB Activation Data expires 21/12/2026 20GB Data expires 21/12/2026 Unltd text expires 21/12/2026 100 International text expires 21/12/2026 Reply with 'more' to see your call balances.");
+assert.strictEqual(telstra.sms, "无限");
+assert.strictEqual(telstra.data, "45GB");
+assert.strictEqual(telstra.expiry, "2026-12-21");
+assert.strictEqual(parseReply("Text: 21 texts left").sms, "21 texts");
+console.log("telstra ok");

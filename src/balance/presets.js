@@ -208,10 +208,10 @@ window.BALANCE_PRESETS = [
   "plmn": "50501",
   "to": "125100",
   "text": "balance",
-  "note": "官方页转述，关键词大小写未核对",
+  "note": "用户实测可用（关键词小写 balance）：回复含各项流量、短信余额和到期日，例如 45GB Activation Data / 20GB Data / Unltd text，到期 21/12/2026；回复末尾可回 more 查通话余额。是否收费没有官方说明",
   "source": "https://www.telstra.com.au/support/pre-paid/recharge-my-pre-paid-service",
   "confidence": "official",
-  "tested": null,
+  "tested": true,
   "free": null
  },
  {

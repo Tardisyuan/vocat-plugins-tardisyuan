@@ -82,7 +82,7 @@
 | 美国 | Metro by T-Mobile | USSD `#225#` | 未经验证 | 不提供 | [第三方](https://www.teloa.com/cms/en/landing/ret/metro-by-t-mobile) | 只有一个弱来源，可信度低 |
 | 澳大利亚 | Optus | 短信 `BAL` → 9999 | 已实测可用 | 可以（官方写明免费） | [官方](https://optus.com.au/support/answer/check_your_prepaid_phone_credit_balance_expiry_date_1386) | 免费，返回余额、流量/通话/短信和到期日；用户实测可用 |
 | 澳大利亚 | Vodafone AU | 短信 `BAL` → 1511 | 未经验证 | 不提供 | [官方](https://www.vodafone.com.au/support/prepaid/balance) | 官方另一页写 1512，有冲突 |
-| 澳大利亚 | Telstra | 短信 `balance` → 125100 | 未经验证 | 不提供 | [官方](https://www.telstra.com.au/support/pre-paid/recharge-my-pre-paid-service) | 官方页转述，关键词大小写未核对 |
+| 澳大利亚 | Telstra | 短信 `balance` → 125100 | 已实测可用 | 不提供 | [官方](https://www.telstra.com.au/support/pre-paid/recharge-my-pre-paid-service) | 用户实测可用（关键词小写 balance）：回复含各项流量、短信余额和到期日，例如 45GB Activation Data / 20GB Data / Unltd text，到期 21/12/2026；回复末尾可回 more 查通话余额。是否收费没有官方说明 |
 | 新西兰 | 2degrees | 短信 `BAL` → 233 | 未经验证 | 可以（官方写明免费） | [官方](https://www.2degrees.nz/help/account-and-billing/manage-account/ussd-shutdown) | 免费；USSD 短码已于 2025-05-12 停用 |
 | 新西兰 | One NZ | 短信 `BAL` → 777 | 未经验证 | 可以（官方写明免费） | [官方](https://one.nz/faq/account-balance-check-prepay-balance-via-txt) | 免费；回复含余额和到期日 |
 | 新西兰 | Spark / Skinny | 短信 `BAL` → 2424 | 未经验证 | 可以（官方写明免费） | [官方](https://spark.co.nz/help/other-help/text-self-service) | 免费；发 INFO 到 2424 可查套餐和续期日 |

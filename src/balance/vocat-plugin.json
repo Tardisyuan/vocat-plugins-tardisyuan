@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "vocat-balance",
   "name": "VoCat Balance & Keep-alive",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Per-SIM balance queries (USSD/SMS) with carrier presets and background runs, plus expiry/inactivity countdown, SIM records and keep-alive tasks.",
   "author": "tardis",
   "contributions": [

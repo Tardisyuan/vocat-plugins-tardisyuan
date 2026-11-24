@@ -73,7 +73,7 @@
     const t = String(text || "");
     const qty = (re) => {
       const m = t.match(re);
-      return m ? (/unlimited|无限/i.test(m[1]) ? "无限" : m[1].replace(/\s+/g, " ").trim()) : null;
+      return m ? (/unlimited|unltd|无限/i.test(m[1]) ? "无限" : m[1].replace(/\s+/g, " ").trim()) : null;
     };
     const cur = t.match(/([$£€¥])\s?(\d+(?:[.,]\d{1,2})?)/);
     // "9.31 GBP" or "AUD 12.50": a 3-letter currency code instead of a symbol.
@@ -86,8 +86,12 @@
       money: moneyNum ? Number(moneyNum.replace(",", ".")) : null,
       moneyText,
       data: qty(/(?:data|流量)[^\d\n]{0,12}?(unlimited|无限|\d+(?:\.\d+)?\s?(?:TB|GB|MB|KB))/i) ?? qty(/(\d+(?:\.\d+)?\s?(?:TB|GB|MB))\b/i),
-      talk: qty(/(?:talk|voice|通话)[^\d\n]{0,12}?(unlimited|无限|\d+\s?(?:分钟|minutes|mins?)?)/i),
-      sms: qty(/(?:text|sms|短信)[^\d\n]{0,12}?(unlimited|无限|\d+\s?(?:条|texts?)?)/i),
+      // A count is never the day of a date that follows ("Unltd text expires 21/12/2026" has no count of 21).
+      // Keyword before the amount ("Text: UNLIMITED"), or after it ("Unltd text", "100 International text").
+      talk: qty(/(?:talk|voice|通话)[^\d\n]{0,12}?(unlimited|unltd|无限|\d+(?![\d/]|[.-]\d)\s?(?:分钟|minutes|mins?)?)/i)
+        ?? qty(/\b(unlimited|unltd|(?<![\d/])\d+)\s+(?:[a-z]+\s+)?(?:talk|minutes|mins?)\b/i),
+      sms: qty(/(?:text|sms|短信)[^\d\n]{0,12}?(unlimited|unltd|无限|\d+(?![\d/]|[.-]\d)\s?(?:条|texts?)?)/i)
+        ?? qty(/\b(unlimited|unltd|(?<![\d/])\d+)\s+(?:[a-z]+\s+)?(?:texts?|sms)\b/i),
       expiry: exp ? parseDate(exp[1], monthFirst) : "",
     };
   }
